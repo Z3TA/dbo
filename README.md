@@ -1,11 +1,11 @@
-﻿# DBO - Abstract the SQL!
+﻿<h1>DBO - Abstract the SQL!</h1>
 
 <p>This module for nodejs/iojs makes it easier to manage data and make it persistant between app restarts.</p>
 
-It (currently) needs a mySQL database, that you have to setup yourself. 
-You also need to make a datbase schema! But you do not have to write SQL withing your app! 
-Database selects, updates and inserts will be done automatically!
-Just use your constructors (functions) and objects normally, with the added benefits of the data being stored in a database (hard drive).
+<p>It (currently) needs a mySQL database, that you have to setup yourself.<br>
+You also need to make a datbase schema! But you do not have to write SQL withing your app! <br>
+Database selects, updates and inserts will be done automatically!<br>
+Just use your constructors (functions) and objects normally, with the added benefits of the data being stored in a database (hard drive).</p>
 
 Example:
 ```
@@ -97,7 +97,7 @@ Do not forget .hasOwnProperty() when iterating the list!
 
 ### Add to a list (INSERT)
 
-dboList.add(JSON, callback);
+<b>dboList.add(JSON, callback)</b>
 
 Make a INSERT into the database table specified when creating the list. And create a new Object with the constructor specified when making the list.
 
@@ -113,7 +113,7 @@ Tip: Use default values for most fields in the database!
 
 ### Link a list to it's parent, using foreign key (JOIN)
 
-dboList.link(anotherDboList, "foreignKey");
+<b>dboList.link(anotherDboList, "foreignKey")</b>
 
 Example:
 
@@ -154,7 +154,7 @@ players.kill("Jon Doe");
 
 ## DBO.table
 
-DBO.table("databaseTable", "primaryKey", "primaryKeyValue", callback)
+<b>DBO.table("databaseTable", "primaryKey", "primaryKeyValue", callback)</b>
 
 Creates a key:value table that holds the row data.
 
