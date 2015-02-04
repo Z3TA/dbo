@@ -1,6 +1,6 @@
 ﻿# DBO - Abstract the SQL!
 
-This module for Nodejs/iojs Makes it easier to manage data and make it persistant between app restarts.
+<p>This module for nodejs/iojs makes it easier to manage data and make it persistant between app restarts.</p>
 
 It (currently) needs a mySQL database, that you have to setup yourself. 
 You also need to make a datbase schema! But you do not have to write SQL withing your app! 
@@ -72,7 +72,7 @@ DBO.connect({host: "127.0.0.1",	user: "myuser", password : "mypassword", databas
 
 ## DBO.list
 
-DBO.list("databaseTable", Constructor, primaryKey, callback)
+<b>DBO.list("databaseTable", Constructor, primaryKey, callback)</b>
 
 Creates a list of all the rows in databaseTable. Each row is constructed using Constructor.
 If the primaryKey is left out, the id (lower-case) field will be used.
