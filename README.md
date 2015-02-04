@@ -1,8 +1,8 @@
 ﻿# DBO - Abstract the SQL!
 
-Makes it easier to manage data and make it persistant between app restarts.
+This module for Nodejs/iojs Makes it easier to manage data and make it persistant between app restarts.
 
-This module (currently) needs a mySQL database, that you have to setup yourself. 
+It (currently) needs a mySQL database, that you have to setup yourself. 
 You also need to make a datbase schema! But you do not have to write SQL withing your app! 
 Database selects, updates and inserts will be done automatically!
 Just use your constructors (functions) and objects normally, with the added benefits of the data being stored in a database (hard drive).
