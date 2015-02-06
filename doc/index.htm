@@ -1,0 +1,178 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+</head>
+
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+
+	<title>DBO Manual</title>
+
+	<meta name="description" content="Closures i JavaScript och hur man undviker dem.">
+
+	<meta name="keywords" content="javascript, closure">
+
+	<link rel="stylesheet" type="text/css"  href="design1/style.css">
+
+	<link rel="stylesheet" type="text/css" href="design1/style.css">
+	<link rel="stylesheet" type="text/css" href="prettify/prettify.css">
+</head>
+
+<body onload="prettyPrint()">
+
+<div id="container">
+
+<h1>DBO: Persistant data abstraction module</h1>
+
+
+
+<h2>DBO.connect</h2>
+
+<p>Connects to the mySQL database that will be used.</p>
+
+<pre class="prettyprint">
+var DBO = require("DBO");
+
+DBO.connect({host: "127.0.0.1",	user: "myuser", password : "mypassword", database: "mydb"});
+</pre>
+
+
+<h2>DBO.list</h2>
+
+<p>Creates a list of all the rows in a database table. Each item in the list will be an object.</p>
+
+<pre class="prettyprint">
+var players = new DBO.list({table: "player", fun: Player, key: "name"});
+
+for(var name in players) {
+	console.log(players[name].data.name);
+	console.log(players[name].data.score);
+}
+</pre>
+
+<p>The <b>key</b> should be the primary key of the database table (that can only be one field).<br>
+If no key is specified, lower case "id" will be used.</p>
+
+<p>The <b>fun</b>ction will be used to create the object.</p>
+<p>If no function is specified, A new Object() will be used.</p>
+
+<p>If DBO.cfg.asyncListsCreation is set to true, a callback can be set as a second argument.</p>
+
+
+
+<h3>.add</h3>
+
+<p>Adds a object to the list.</p>
+
+<pre class="prettyprint">
+players.add({name: "Jon Doe", age: 33}, callback);
+</pre>
+
+<p>Makes an INSERT into the database table specified when creating the list. And create a new Object with the constructor specified when making the list.</p>
+
+<p></p>
+
+<p>Tip: For convenience, use default values for most fields in the database!</p>
+
+
+
+
+<h3>.link</h3>
+
+<p>Makes data from one list accessible in another based on their relation.</p>
+
+<pre class="prettyprint">
+var players = new DBO.list({tbl: "player", fun: Player});
+var shares = new DBO.list({tbl: "shares"});
+
+players.link({list: shares, key: "player", attribute: "shareholders", pp: "issuer"});
+players.link({list: shares, key: "owner", attribute: "investments"});
+
+Player.prototype.showShareHolders = function() {
+	var player = this;
+	
+	for(var share in player.shareholders) {
+		showInfo( player.shareholders[share] );
+	}
+	
+	function showInfo(share) {
+		console.log(share.owner.data.name + " owns " + share.data.shares + 
+		" share with a total worth of " + share.data.price);
+	}
+}
+</pre>
+
+<p>This will create a list of shareholders and investments under each player.</p>
+
+<p>For convenience, the <b>pp</b> will be accessible from each share.<br>
+If pp is not defined, the key will be used.<br>
+This will however create a circular structure and can be disabled by defining pp to false, or for all links by setting DBA.cnf.pointToParentInLinks to false.</p>
+
+
+
+<h3>.kill</h3>
+
+<p>This will remove an object from the list.</p>
+
+<pre class="prettyprint">
+players.kill("Jon Doe");
+</pre>
+
+<p>The primary key need to be passed as argument.</p>
+
+<p>Note that you should kill the childs before killing the parent:</p>
+
+<pre class="prettyprint">
+for(var id in players["Jon Doe"].armies) {
+  armies.kill(id);	
+}
+players.kill("Jon Doe");
+</pre>
+
+
+
+
+
+
+
+
+<h2>DBO.table</h2>
+
+<p>DBO.table is used internally to hold the data in a key:value table.</p>
+
+<pre class="prettyprint">
+var player = new Player();
+player.data = new DBO.table({tbl: "player", key: "name", keyValue: "Johan"}, doStuff);
+
+function doStuff() {
+	player.doSomething();
+}
+
+</pre>
+
+<h3>Update the data</h3>
+
+<pre class="prettyprint">
+player.data.score = player.data.score + 1;
+</pre>
+ 
+<p>A Object defined setter works in the background and makes an async database UPDATE.</p>
+ 
+ 
+ 
+ 
+ 
+<h2>Debugging</h2>
+ 
+<pre class="prettyprint">
+DBO.debug.showSQL = true;
+DBO.debug.showWarnings = true;
+DBO.debug.useColors = true;
+</pre>
+
+
+
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,79 @@
+/* Neutralize styling: Elements we want to clean out entirely: */
+html, body, form, fieldset
+{margin:0; padding:0; font:100.1%/120% "Times New Roman";}
+
+/* Neutralize styling: Elements with a vertical margin: */
+h1, h2, h3, h4, h5, h6, p, pre, blockquote, ul, ol, dl, address {margin:1em 0; padding:0;}
+
+/* Apply left margin: Only to the few elements that need it: */
+li, dd, blockquote {margin-left:26px;}
+
+/* Miscellaneous conveniences: */
+form label {cursor:pointer;}
+fieldset {border:none;}
+
+/* Form field text-scaling */
+input, select, textarea {font-size:100.1%;}
+
+
+#container {
+
+	margin: 50px;
+	font-size: small;
+	font-family: arial,sans-serif;
+	
+	max-width: 700px;
+	float: left;
+
+}
+
+.rubrikregister {
+	max-width: 400px;
+	float: left;
+	margin: 50px;
+
+}
+
+
+body, p {
+	font-size: 13px;
+	line-height: 22px;
+	font-family: arial,sans-serif;
+}
+
+
+p {
+	margin-top: 12px;
+	margin-bottom: 20px;
+}
+
+
+h1 {
+	font-size: 35px;
+	line-height: 45px;
+	margin-top: 60px;
+	margin-bottom: 20px;
+
+}
+
+h2 {
+	font-size: 20px;
+	margin-top: 60px;
+	margin-bottom: 20px;
+}
+
+
+h3 {
+	font-size: 15px;
+	margin-top: 40px;
+	margin-bottom: 10px;
+}
+
+h4 {
+	font-size: 13px;
+	margin-top: 25px;
+	margin-bottom: 5px;
+}
+
+
+
