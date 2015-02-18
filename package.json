@@ -1,6 +1,6 @@
 {
   "author": "Z3T4",
-  "name": "DBO",
+  "name": "dbo",
   "description": "Make your data persistent. Database abstraction.",
   "version": "0.2.1",
   "main": "./DBO.js",

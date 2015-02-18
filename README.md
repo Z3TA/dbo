@@ -31,7 +31,7 @@ Weapon.prototype.fireAt(otherPlayer) {
 	otherPlayer.takeDamage(this.damage);
 }
 
-var DBO = require("DBO");
+var DBO = require("dbo");
 
 DBO.connect({host: "127.0.0.1",	user: "nodedeamon", password : "12345", database: "ultrashooter"});
 
