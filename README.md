@@ -5,7 +5,7 @@
 
 Your DBA guy will be happy you'll be using a SQL relational database, and your JS hackers will be happy about using no-SQL. And you will be happy about getting the advantage of both!
 
-This module for nodejs/iojs makes it easier to manage data and make it persistant between app restarts.
+This module for nodejs/iojs makes it easier to manage data and make data persistant between app restarts.
 
 Database selects, updates and inserts will be done automatically! 
 
@@ -65,9 +65,7 @@ You only have to remember one function (DBO.list) to make your data persistant.
 
 The "data" will always be under .data, stored as an assosiative array with key, value pairs. We choose to have all "data" under a data attribute to make sure other attributes or functions are not overwritten.
 
-DBO.list can .add, .link and .kill. And it's also a assosiative array with key -value pairs. But with the values being objects constructed by specified function, witch will get data attributes.  
-
 Make sure you use unique identifiers (primary keys) like name, or id (with auto-increment) when you design the database schema!
 
-See the documentation for more info.
+See the <a href="doc/index.htm">documentation</a> for more info.
 
