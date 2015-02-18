@@ -30,7 +30,7 @@ SOFTWARE.
 var util = require("util"),
 	mysql = require("mysql"),
 	cli = require("cli-color"),
-	deasync = require("deasynca");
+	deasync = require("deasync");
 
 
 
@@ -101,8 +101,8 @@ DBO.cfg = {pointToParentInLinks: true, asyncListsCreation: false};
 
 
 
-DBO.connect = function(cfg) {
-	db_config = cfg;
+DBO.connect = function(dbCfg) {
+	db_config = dbCfg;
 	
 	if(database) {
 		throw new Error("Already connected to the database!");
@@ -129,13 +129,16 @@ DBO.table = function(arg, callback) {
 		identifier = arg.key,
 		identifierValue = arg.keyValue;
 	
-	if(!dbTable) {
+	if(!database) {
+		throw new Error("You need to connect to a database! See DBO.connect()");
+	}
+	else if(!dbTable) {
 		throw new Error("No table defined in argument " + JSON.stringify(arg) + "!");
 	}
-	else if(identifier) {
+	else if(!identifier) {
 		throw new Error("No key defined in argument " + JSON.stringify(arg) + "!");
 	}
-	else if(identifierValue) {
+	else if(!identifierValue) {
 		throw new Error("No keyValue defined in argument " + JSON.stringify(arg) + "!");
 	}
 	
@@ -224,13 +227,18 @@ DBO.list = function(arg, callback) {
 	var list = this,
 		data,
 		name,
-		dbTable = arg.tbl,
+		dbTable = arg.table,
 		constructor = arg.fun,
 		identifier = arg.key,
 		done = false;
 		
-	
-	if(DBO.cfg.asyncListsCreation === false && callback) {
+	if(!database) {
+		throw new Error("You need to connect to a database! See DBO.connect()");
+	}
+	else if(!dbTable) {
+		throw new Error("No database table specified!");
+	}
+	else if(DBO.cfg.asyncListsCreation === false && callback) {
 		throw new Error("Can not have a callback when DBO.cfg.asyncListsCreation is set to false!");
 	}
 	
@@ -239,7 +247,7 @@ DBO.list = function(arg, callback) {
 	}
 	
 	if(listedTables.indexOf(dbTable) > -1) {
-		throw new Error("Dublicate list of " + dbTable + "!"); 
+		throw new Error("Table " + dbTable + " already linked!"); 
 	}
 	else {
 		listedTables.push(dbTable);
@@ -350,7 +358,7 @@ DBO.list.prototype.add = function(values, callback) {
 		// We now got the identifierValue but have to wait for the data before inserting the new objec to the list ...
 		
 		// Make a SELECT to get All fields
-		object.data = new DBO.table({tbl: dbTable, key: identifier, keyValue: identifierValue}, init);
+		object.data = new DBO.table({table: dbTable, key: identifier, keyValue: identifierValue}, init);
 		
 	});
 	debug.sql(query.sql);
@@ -365,7 +373,7 @@ DBO.list.prototype.add = function(values, callback) {
 	
 		updateLinks();
 		
-		if(callback) callback();
+		if(callback) callback(object);
 	
 	}
 	
@@ -522,7 +530,557 @@ DBO.list.prototype.kill = function(keyValue) {
 	
 }
 
+DBO.list.prototype.rand = function() {
+	// Return a random object from the list
+	
+	var list = this,
+		keys = Object.keys(list),
+		key = keys[Math.floor(Math.random()*keys.length)];
+	
+	return list[key];	
+}
+
+
+DBO.list.prototype.search = function(keyValues) {
+	var list = this,
+		identifier = list.__identifier,
+		identifierValue,
+		foundObjects = {},
+		allMatch = true,
+		keys,
+		obj;
+	
+	if(keyValues.hasOwnProperty(identifier)) {
+		// Take a shortcut, search only one object
+		
+		identifierValue = keyValues[identifier];
+		
+		if(list.hasOwnProperty(identifierValue)) {
+			
+			allMatch = true;
+			
+			for(var key in keyValues) {
+				if(list[identifierValue].data[key] != keyValues[key]) {
+					allMatch = false;
+					break;
+				}
+			}
+			
+			if(allMatch) {
+				foundObjects[identifierValue] = list[identifierValue];
+			}
+			
+		}
+
+	}
+	else {
+		// Search all objects (we might be able to optimize this code ...)
+		
+		keys = Object.keys(list);
+		
+		for(var i=0; i<keys.length; i++) {
+
+			obj = keys[i];
+			
+			allMatch = true;
+			
+			for(var key in keyValues) {
+				if(list[obj]["data"][key] != keyValues[key]) {
+					allMatch = false;
+					break;
+				}
+			}
+			
+			if(allMatch) {
+				foundObjects[obj] = list[obj];
+			}
+		}
+	}
+	
+	return foundObjects;
+}
+
+DBO.list.prototype.count = function(keyValues) {
+
+	/*
+	
+		We might be able to optimize this by caching!?
+	
+	*/
+
+	var list = this;
+	
+	if(keyValues) {
+		list = list.search(keyValues);
+	}
+	
+	return Object.keys(list).length;
+
+}
+
+
+
+
+
+
+DBO.log = function(arg, callback) {
+	
+	/*
+		
+		todo: all keys get their own property
+		
+		every key has to have a combo
+		
+		log.publisher = {advertiser: {publisher, ip}, ip: {advertiser, publisher}}
+		log.advertiser = {publisher: {}, ip: {}}
+		log.ip = {publisher: {}, advertiser: {}}
+	
+		l.count({publisher: publisher, advertiser: advertiser, ip: ip});
+		
+		l.count({advertiser: advertiser});
+		
+		
+	*/
+	
+	var typeofKeys = Object.prototype.toString.call( arg.keys );
+
+	if(typeofKeys !== "[object Array]") {
+		throw new Error("keys must be an array with at least one item! You passed a " + typeofKeys + "");
+	}
+
+	var log = this,
+		dbTable = arg.table,
+		keys = arg.keys,
+		async = (callback === false) ? false : true,
+		done = false,
+		recursiveCount = 0,
+		recursiveDone = keys.length;
+
+	if(!database) {
+		throw new Error("You need to connect to a database! See DBO.connect()");
+	}
+	else if(!dbTable) {
+		throw new Error("No database table specified!");
+	}
+
+	if(listedTables.indexOf(dbTable) > -1) {
+		throw new Error("Table " + dbTable + " already linked!"); 
+	}
+	else {
+		listedTables.push(dbTable);
+	}
+	
+	
+	Object.defineProperty(log, "__table", { value: dbTable, enumerable: false });
+	Object.defineProperty(log, "__keys", { value: keys, enumerable: false });
+
+	
+	recurse(log, keys, {});
+	
+	
+	function recurse(obj, keys, parents) {
+		
+		//console.log("Recursing!");
+		
+		for(var i=0, k; i<keys.length; i++) {
+			
+			k = keys.slice(); // Copy array
+			
+			k.splice(i, 1); // Remove item from array copy
+			
+			getCount(obj, keys[i], k, parents);
+			
+		}
+	}
+	
+	
+	function getCount(obj, key, keys, parents) {
+	
+		var SQL,
+			parentKeys = Object.keys(parents),
+			query;
+		
+		if(parentKeys.length === 0) {
+			query = database.query("SELECT ??, Count(*) AS entries FROM ?? GROUP BY ??", [key, dbTable, key], queryCallback);
+		}
+		else {
+		
+			SQL = "SELECT `" + key + "` AS `" + key + "`, ";
+			for(var i=0; i<parentKeys.length; i++) {
+				SQL += "`" + parentKeys[i] + "` AS '" + parentKeys[i] + "', ";
+			}
+			
+			SQL += "Count(*) AS entries FROM `" + dbTable + "` GROUP BY "
+
+			for(var i=0; i<parentKeys.length; i++) {
+				SQL += "`" + parentKeys[i] + "`, ";
+			}
+
+			SQL += "`" + key + "`";
+			
+			SQL += " HAVING "
+			for(var i=0; i<parentKeys.length; i++) {
+				SQL += "`" + parentKeys[i] + "` = '" + parents[parentKeys[i]] + "' AND ";
+			}
+			
+			SQL = SQL.substring(0, SQL.length - 5); // Remove last AND
+		
+			query = database.query(SQL, [dbTable], queryCallback);
+		}
+		
+		//console.log("key=" + key + " keys:" + keys + " parents:" + JSON.stringify(parents));
+		
+		debug.sql(query.sql);
+		
+		
+		function queryCallback(err, rows) {
+		
+			if (err) throw new Error(err);
+			
+			//console.log(JSON.stringify(rows));
+			
+			if(rows.length === 0) {
+				obj[key] = obj.__total;
+				
+				//console.log("Query had no result ... Setting " + key + " to " + obj.__total);
+				
+			}
+			else {
+			
+				obj[key] = {};
+				
+				for(var i=0, data, name, newParents; i<rows.length; i++) {
+					
+					data = rows[i];
+					
+					name = data[key];
+					
+					if(keys.length > 0) {
+					
+						
+						// again ...
+						
+						//console.log("oldParents=" + JSON.stringify(parents));
+						
+						newParents = clone(parents);
+						
+						newParents[key] = name; // Add current key
+						
+						//console.log("newParents=" + JSON.stringify(newParents));
+
+						//console.log("err key=" + key + " keys=" + JSON.stringify(keys));
+						
+						obj[key][name] = {};
+						
+						Object.defineProperty(obj[key][name], "__total", { value: data.entries, enumerable: false, writable: true });
+
+						recurse(obj[key][name], keys, newParents);
+						
+						
+					}
+					else {
+						// We have reached bedrock
+						obj[key][name] = data.entries;
+
+					}
+					
+					
+				}
+			}
+			
+			if(recursiveCount++ == recursiveDone) {
+				//console.log("ALL DONE!");
+				done = true;
+			}
+			
+		
+		}
+
+	
+	}
+	
+	
+
+	
+
+	function fill(name, key) {
+	
+		// SELECT publisher, advertiser, Count(*) AS entries FROM views GROUP BY advertiser HAVING publisher = 100;
+		// If we had used a DBO.list we could have crunshed this, but as we are only storing Count(*)'s we have to make another db query
+		
+		log[name][key] = {}; // log["publisher1"].advertiser = {}
+		
+		var query = database.query("SELECT ?? AS id, ?? AS keyy, Count(*) AS entries FROM ?? GROUP BY ?? HAVING ?? = ?", [identifier, key, dbTable, key, identifier, name], function(err, rows) {
+			if (err) throw new Error(err);
+
+			for(var i=0; i<rows.length; i++) {
+				
+				log[name][key][rows[i].keyy] = rows[i].entries;
+				
+			}
+			
+			if(fillCount++ == fillGoal) {
+				done = true;
+				
+				if(callback) callback();
+			}
+		});
+		debug.sql(query.sql);
+
+	}
+	
+}
+
+DBO.log.prototype.add = function(values, callback) {
+	var log = this,
+		dbTable = log.__table,
+		keys = log.__keys,
+		done = false,
+		async = (callback === false) ? false : true;
+	
+	
+	for(var i=0, k; i<keys.length; i++) {
+		if(!values.hasOwnProperty(keys[i])) {
+			throw new Error("Data entry must have a " + keys[i] + "!");
+		}
+	}
+	
+	/*
+		Increment for all key combos ...
+	
+		{
+			"publisher": {
+				"100": {
+					"advertiser": {
+						"101": 2
+					}
+				}
+			},
+			"advertiser": {
+				"101": {
+					"publisher": {
+						"100": 2
+					}
+				}
+			}
+		}
+		
+		new entry: values = {publisher: 100, advertiser: 101, ip: "127.0.0.1"}
+		
+		log["publisher"] [values[publisher]] ["advertiser"] [values[advertiser]] ++
+		
+		log["advertiser"] [values[advertiser]] ["publisher"] [values[publisher]] ++
+
+		
+	*/
+	
+
+	recurse(log, keys);
+	
+	//console.log(JSON.stringify(log, null, 4));
+	
+	function recurse(tree, keys) {
+		// Loop keys and dig deeper ...
+		for(var i=0, keys_copy, newTree, value; i<keys.length; i++) {
+		
+			// Make a new array with the current keys[i] value left out
+			keys_copy = keys.slice(); // Copy array
+			keys_copy.splice(i, 1); // Remove item from array copy
+			
+			setCount(tree, keys[i], keys_copy);
+
+		}
+	}
+	
+	
+	function setCount(tree, key, keys) {
+
+		var value = values[key];
+		
+		if(!tree.hasOwnProperty(key)) {
+			tree[key] = {};
+		}
+		
+		tree = tree[key];
+		
+		if(keys.length == 0) {
+			// We reached bedrock! Increment the counter
+			
+			if(tree.hasOwnProperty(value)) {
+				tree[value]++;
+			}
+			else {
+				tree[value] = 1;
+			}
+			
+		}
+		else {
+		
+			if(!tree.hasOwnProperty(value)) {
+				tree[value] = {};
+				tree[value].__total = 0;
+			}
+			
+			tree[value].__total++;
+			recurse(tree[value], keys);
+		}
+
+	}
+	
+	var query = database.query("INSERT INTO ?? SET ?", [dbTable, values], function(err, result) {
+		if (err) throw new Error(err);
+		
+		done = true;
+		
+		if(callback) callback();
+	});
+	debug.sql(query.sql);
+	
+}
+
+DBO.log.prototype.count = function(keyValues) {
+	var log = this,
+		keys = log.__keys,
+		value,
+		tree = log;
+	
+	
+	for(var key in keyValues) {
+		if(keys.indexOf(key) == -1) {
+			throw new Error(key + " is not defined as a key. Only " + JSON.stringify(keys) + " can be used for counting!");
+		}
+		
+		if(tree.hasOwnProperty(key)) {
+			tree = tree[key];
+			
+			value = keyValues[key];
+			
+			if(tree.hasOwnProperty(value)) {
+				tree = tree[value];
+			}
+			else {
+				debug.warn(value + " does not exist in " + key + "!");
+				return 0;
+			}
+
+		}
+		else {
+			debug.warn(key + " is empty!");
+			return 0;
+		}
+
+	}
+	
+	if(typeof tree === "number") {
+		return tree;
+	}
+	else {
+		return tree.__total;
+	}
+	
+}
+
+DBO.log.prototype.list = function(keyValues, anyKey) {
+	var log = this,
+		keys = log.__keys,
+		value,
+		tree = log;
+
+	
+	/* Make sure all keys exist in keyValues
+	for(var key in keys) {
+		if(!keyValues.hasOwnProperty(key)) {
+			throw new Error('Argument does not contain key ' + key + '. Pass ' + key + ':"*" to list all ' + key + '.'); 
+		}
+	}
+	*/
+	
+	for(var key in keyValues) {
+		if(keys.indexOf(key) == -1) {
+			throw new Error(key + " is not defined as a key. Only " + JSON.stringify(keys) + " can be used to create a list!");
+		}
+		
+		
+		if(tree.hasOwnProperty(key)) {
+			tree = tree[key];
+			
+			value = keyValues[key];
+		
+			if(tree.hasOwnProperty(value)) {
+				tree = tree[value];
+			}
+			else {
+				debug.warn(value + " does not exist in " + key + "!");
+				return {};
+			}
+
+		}
+		else {
+			debug.warn(key + " is empty!");
+			return {};
+		}
+
+	}
+	
+	if(anyKey) {
+		if(tree.hasOwnProperty(anyKey)) {
+			return tree[anyKey];
+		}
+		else {
+			debug.warn(value + " does not exist in " + JSON.stringify(tree) + "!");
+			return {};
+		}
+	}
+	
+	return tree;
+
+}
+
 
 module.exports = DBO;
 
 
+/*
+
+Notes:
+
+package.json needs to be saved in utf8 without BOM.
+
+
+*/
+
+
+
+function clone(obj) {
+    var copy;
+
+    // Handle the 3 simple types, and null or undefined
+    if (null == obj || "object" != typeof obj) return obj;
+
+    // Handle Date
+    if (obj instanceof Date) {
+        copy = new Date();
+        copy.setTime(obj.getTime());
+        return copy;
+    }
+
+    // Handle Array
+    if (obj instanceof Array) {
+        copy = [];
+        for (var i = 0, len = obj.length; i < len; i++) {
+            copy[i] = clone(obj[i]);
+        }
+        return copy;
+    }
+
+    // Handle Object
+    if (obj instanceof Object) {
+        copy = {};
+        for (var attr in obj) {
+            if (obj.hasOwnProperty(attr)) copy[attr] = clone(obj[attr]);
+        }
+        return copy;
+    }
+
+    throw new Error("Unable to copy obj! Its type isn't supported.");
+}

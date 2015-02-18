@@ -69,7 +69,7 @@ players.add({name: "Jon Doe", age: 33}, callback);
 
 <p>Makes an INSERT into the database table specified when creating the list. And create a new Object with the constructor specified when making the list.</p>
 
-<p></p>
+<p>If the second argument (instead of callback) is defined as false. The script will wait until the data has been inserted before continuing.</p>
 
 <p>Tip: For convenience, use default values for most fields in the database!</p>
 
@@ -81,8 +81,8 @@ players.add({name: "Jon Doe", age: 33}, callback);
 <p>Makes data from one list accessible in another based on their relation.</p>
 
 <pre class="prettyprint">
-var players = new DBO.list({tbl: "player", fun: Player});
-var shares = new DBO.list({tbl: "shares"});
+var players = new DBO.list({table: "player", fun: Player});
+var shares = new DBO.list({table: "shares"});
 
 players.link({list: shares, key: "player", attribute: "shareholders", pp: "issuer"});
 players.link({list: shares, key: "owner", attribute: "investments"});
@@ -131,6 +131,38 @@ players.kill("Jon Doe");
 
 
 
+<h2>DBO.log</h2>
+
+<p>Works like DBO.list, but do not keep the data in memory. Only the amount of inserts are saved. Intented use for statisitcs of huge data that do not fit in memory.</p>
+
+<pre class="prettyprint">
+var attacks = DBO.log({table: attacks, keys: [attacker, defender]);
+
+attacks.add({attacker: playerId, defender: anotherPlayer}); 
+
+console.log( "Total attacks made by player " + playerId + ": " + attacks.count({attacker: playerId}) );
+
+console.log( "Total attacks made by player " + playerId + " on player " + otherPlayer + ": " + attacks.count({attacker: playerId, defender: otherPlayer}) );
+</pre>
+
+
+<h3>.add</h3>
+
+<p>Adds data to the log.</p>
+
+
+<h3>.count</h3>
+
+<p>Counts data entreis. Works like a SELECT Count(*). But without the database roundtrip!</p>
+
+<p>The value can be retrived directly without calling .count:</p>
+
+<pre class="prettyprint">
+console.log("Total attacks made by player " + playerId + ": " + attacks["attacker"][playerId].__total;
+
+console.log( "Total attacks made by player " + playerId + " on player " + otherPlayer + ": " + attacks["attacker"][playerId]["defender"][otherPlayer]) );
+</pre>
+
 
 
 
@@ -141,7 +173,7 @@ players.kill("Jon Doe");
 
 <pre class="prettyprint">
 var player = new Player();
-player.data = new DBO.table({tbl: "player", key: "name", keyValue: "Johan"}, doStuff);
+player.data = new DBO.table({table: "player", key: "name", keyValue: "Johan"}, doStuff);
 
 function doStuff() {
 	player.doSomething();
