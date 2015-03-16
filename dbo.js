@@ -145,9 +145,6 @@ DBO.table = function(arg, callback) {
 		throw new Error("No keyValue defined in argument " + JSON.stringify(arg) + "!");
 	}
 	
-	Object.defineProperty(table, "__table", { value: dbTable, enumerable: false });
-	Object.defineProperty(table, "__identifier", { value: identifier, enumerable: false });
-
 	var query = database.query("SELECT * FROM ?? WHERE ?? = ?", [dbTable, identifier, identifierValue], function(err, rows) {
 		if (err) throw new Error(err);
 
@@ -155,7 +152,7 @@ DBO.table = function(arg, callback) {
 			
 			var data = rows[0];
 			
-			table.init(data);
+			table.init(data, dbTable, identifier, identifierValue);
 
 		}
 		else {
@@ -171,19 +168,28 @@ DBO.table = function(arg, callback) {
 
 
 
-DBO.table.prototype.init = function(data, dbTable, identifier) {
+DBO.table.prototype.init = function(data, dbTable, identifier, identifierValue) {
 	var table = this;
 	
-	if(dbTable && !table["__table"]) {
-		Object.defineProperty(table, "__table", { value: dbTable, enumerable: false });
+	if(!dbTable) {
+		throw new Error("Table init without dbTable");
 	}
 	
-	if(identifier && !table["__identifier"]) {
-		Object.defineProperty(table, "__identifier", { value: identifier, enumerable: false });
+	if(!identifier) {
+		throw new Error("Table init without identifier");
 	}
 	
-	for(var name in data) {
-		table.define(name, data[name]);
+	if(!identifierValue) {
+		throw new Error("Table init without identifierValue");
+	}
+	
+	Object.defineProperty(table, "__table", { value: dbTable, enumerable: false });
+	Object.defineProperty(table, "__identifier", { value: identifier, enumerable: false });
+	Object.defineProperty(table, "__identifierValue", { value: identifierValue, enumerable: false });
+
+	
+	for(var field in data) {
+		table.define(field, data[field]);
 	}
 	
 	// Object.keys(data).forEach(table.define);
@@ -195,14 +201,33 @@ DBO.table.prototype.define = function (name, currentValue) {
 	var table = this,
 		dbTable = table.__table,
 		identifier = table.__identifier,
-		identifierValue = table[identifier];
+		identifierValue = table.__identifierValue;
 	
 	//table[name] = data[name];
 	Object.defineProperty( table, name, {
 		get: function(){ return currentValue; },
 		set: function(value){ 
-
-			// Datbase queries are costly, so check if the value actually updates before updating it.
+			
+			if(value == undefined) {
+				throw new Error("The new value for " + name + " is undefined!");
+			}
+			else if(value !== value) {
+				throw new Error("The new value for " + name + " is NaN!");
+			}
+			else if(value == null) {
+				dbo.warn("The new value for " + name + " is null!");
+			}
+			
+			/*
+			console.log(JSON.stringify(value) + " = " + value);
+			
+			console.log("dbTable=" + dbTable);
+			console.log("name=" + name);
+			console.log("identifier=" + identifier);
+			console.log("identifierValue=" + identifierValue + " (undefined? " + (identifierValue==undefined) + ")");
+			*/
+			
+			// Database queries are costly, so check if the value actually updates before updating it.
 			if(currentValue != value) {
 				var query = database.query("UPDATE ?? SET ?? = ? WHERE ?? = ?", [dbTable, name, value, identifier, identifierValue], function(err, result) {
 					if (err) throw new Error(err);
@@ -298,7 +323,7 @@ DBO.list = function(arg, callback) {
 		
 		var objData = Object.create(DBO.table.prototype); // We use Object.create here because we don't want to call the actual function. That would result in another database SELECT.
 		
-		objData.init(row, identifier);
+		objData.init(row, dbTable, identifier, name);
 		
 		
 		if(constructor) {
@@ -318,6 +343,7 @@ DBO.list = function(arg, callback) {
 	
 	
 }
+
 
 DBO.list.prototype.add = function(values, callback) {
 	var list = this,
@@ -817,6 +843,20 @@ DBO.list.prototype.sortedKeys = function(sortBy) {
 	}
 	
 }
+
+// Hide the List.prototypes from enumerable
+Object.defineProperty(DBO.list.prototype, "add", {enumerable: false, value: DBO.list.prototype.add});
+Object.defineProperty(DBO.list.prototype, "link", {enumerable: false, value: DBO.list.prototype.link});
+Object.defineProperty(DBO.list.prototype, "kill", {enumerable: false, value: DBO.list.prototype.kill});
+Object.defineProperty(DBO.list.prototype, "rand", {enumerable: false, value: DBO.list.prototype.rand});
+Object.defineProperty(DBO.list.prototype, "first", {enumerable: false, value: DBO.list.prototype.first});
+Object.defineProperty(DBO.list.prototype, "search", {enumerable: false, value: DBO.list.prototype.search});
+Object.defineProperty(DBO.list.prototype, "count", {enumerable: false, value: DBO.list.prototype.count});
+Object.defineProperty(DBO.list.prototype, "sum", {enumerable: false, value: DBO.list.prototype.sum});
+Object.defineProperty(DBO.list.prototype, "find", {enumerable: false, value: DBO.list.prototype.find});
+Object.defineProperty(DBO.list.prototype, "shuffledKeys", {enumerable: false, value: DBO.list.prototype.shuffledKeys});
+Object.defineProperty(DBO.list.prototype, "sortedKeys", {enumerable: false, value: DBO.list.prototype.sortedKeys});
+
 
 
 
