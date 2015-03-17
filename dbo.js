@@ -186,10 +186,11 @@ DBO.table.prototype.init = function(data, dbTable, identifier, identifierValue) 
 	Object.defineProperty(table, "__table", { value: dbTable, enumerable: false });
 	Object.defineProperty(table, "__identifier", { value: identifier, enumerable: false });
 	Object.defineProperty(table, "__identifierValue", { value: identifierValue, enumerable: false });
+	Object.defineProperty(table, "__timers", { value: {}, enumerable: false });
 
-	
 	for(var field in data) {
 		table.define(field, data[field]);
+		table.__timers[field] = false;
 	}
 	
 	// Object.keys(data).forEach(table.define);
