@@ -57,6 +57,11 @@ debug.info = function(info) {
 	}
 }
 debug.log = function(msg, color) {
+	
+	if(!color) {
+		throw new Error("No color defined. You probably meant to call debug.info.");
+	}
+	
 	if(DBO.cfg.debug.useColors) {
 		console.log(cli[color](msg));
 	}
@@ -66,11 +71,11 @@ debug.log = function(msg, color) {
 }
 
 function handleDbDisconnect() {
-
+	
 	// Recreate the connection, since the old one cannot be reused.
-	database = mysql.createConnection(db_config);    
-                                                    
-	database.connect(function(err) {                 
+	database = mysql.createConnection(db_config);
+    
+	database.connect(function(err) {
 		if(err) {
 			/* 
 				The server is either down or restarting (takes a while sometimes).
@@ -138,11 +143,14 @@ DBO.disconnect = function(callback) {
 
 
 DBO.table = function(arg, callback) {
+	/*
+		The DBO.table holds the *data* object.
+	
+	*/
 	
 	var table = this,
 		dbTable = arg.table, 
-		identifier = arg.key,
-		identifierValue = arg.keyValue;
+		identifiers = arg.keys;
 	
 	if(!database) {
 		throw new Error("You need to connect to a database! See DBO.connect()");
@@ -150,21 +158,19 @@ DBO.table = function(arg, callback) {
 	else if(!dbTable) {
 		throw new Error("No table defined in argument " + JSON.stringify(arg) + "!");
 	}
-	else if(!identifier) {
-		throw new Error("No key defined in argument " + JSON.stringify(arg) + "!");
-	}
-	else if(!identifierValue) {
-		throw new Error("No keyValue defined in argument " + JSON.stringify(arg) + "!");
+	else if(!identifiers) {
+		throw new Error("No key(s) defined in argument " + JSON.stringify(arg) + "!");
 	}
 	
-	var query = database.query("SELECT * FROM ?? WHERE ?? = ?", [dbTable, identifier, identifierValue], function(err, rows) {
+	
+	var query = database.query("SELECT * FROM ?? WHERE ?", [dbTable, identifiers], function(err, rows) {
 		if (err) throw new Error(err);
 
 		if(rows.length == 1) {
 			
 			var data = rows[0];
 			
-			table.init(data, dbTable, identifier, identifierValue);
+			table.init(data, dbTable, identifiers);
 
 		}
 		else {
@@ -180,24 +186,19 @@ DBO.table = function(arg, callback) {
 
 
 
-DBO.table.prototype.init = function(data, dbTable, identifier, identifierValue) {
+DBO.table.prototype.init = function(data, dbTable, identifiers) {
 	var table = this;
 	
 	if(!dbTable) {
 		throw new Error("Table init without dbTable");
 	}
 	
-	if(!identifier) {
-		throw new Error("Table init without identifier");
-	}
-	
-	if(identifierValue == undefined) {
-		throw new Error("Table init without identifierValue");
+	if(!identifiers) {
+		throw new Error("Table init without identifiers");
 	}
 	
 	Object.defineProperty(table, "__table", { value: dbTable, enumerable: false });
-	Object.defineProperty(table, "__identifier", { value: identifier, enumerable: false });
-	Object.defineProperty(table, "__identifierValue", { value: identifierValue, enumerable: false });
+	Object.defineProperty(table, "__identifiers", { value: identifiers, enumerable: false });
 	Object.defineProperty(table, "__timers", { value: {}, enumerable: false });
 
 	for(var field in data) {
@@ -210,16 +211,17 @@ DBO.table.prototype.init = function(data, dbTable, identifier, identifierValue) 
 }
 
 DBO.table.prototype.define = function (name, currentValue) {
-
+	// Call Object.defineProperty on the attribute to add getter and setter
+	
 	var table = this,
 		dbTable = table.__table,
-		identifier = table.__identifier,
-		identifierValue = table.__identifierValue;
+		identifiers = table.__identifiers,
+		where = createWhereString(identifiers);
 	
 	//table[name] = data[name];
 	Object.defineProperty( table, name, {
 		get: function(){ return currentValue; },
-		set: function(value){ 
+		set: function(value) {
 			
 			if(value == undefined) {
 				throw new Error("The new value for " + name + " is undefined!");
@@ -236,8 +238,7 @@ DBO.table.prototype.define = function (name, currentValue) {
 			
 			console.log("dbTable=" + dbTable);
 			console.log("name=" + name);
-			console.log("identifier=" + identifier);
-			console.log("identifierValue=" + identifierValue + " (undefined? " + (identifierValue==undefined) + ")");
+			console.log("identifiers=" + JSON.stringify(identifiers));
 			*/
 			
 			// Database queries are costly, so check if the value actually updates before updating it.
@@ -247,7 +248,7 @@ DBO.table.prototype.define = function (name, currentValue) {
 				
 				table.__timers[name] = setTimeout(function() {
 					
-					var query = database.query("UPDATE ?? SET ?? = ? WHERE ?? = ?", [dbTable, name, value, identifier, identifierValue], function(err, result) {
+					var query = database.query("UPDATE ?? SET ?? = ? WHERE " + where, [dbTable, name, value, identifiers], function(err, result) {
 						if (err) throw new Error(err);
 					});
 					
@@ -270,6 +271,8 @@ DBO.list = function(arg, callback) {
 	/*
 		
 		Creates a list of something, initiates and gives each item its data ...
+		
+		Each list item can only have one primary key (identifier) witch will be used to access the item as this is an associative array.
 		
 	*/
 	
@@ -344,7 +347,11 @@ DBO.list = function(arg, callback) {
 		
 		var objData = Object.create(DBO.table.prototype); // We use Object.create here because we don't want to call the actual function. That would result in another database SELECT.
 		
-		objData.init(row, dbTable, identifier, name);
+		var table_identifiers = {};
+		table_identifiers[identifier] = identifierValue;
+		
+		objData.init(row, dbTable, table_identifiers);
+		//objData.init(row, dbTable, identifier, name);
 		
 		
 		if(constructor) {
@@ -401,8 +408,11 @@ DBO.list.prototype.add = function(values, callback) {
 		
 		// We now got the identifierValue but have to wait for the data before inserting the new objec to the list ...
 		
+		var table_identifiers = {};
+		table_identifiers[identifier] = identifierValue;
+		
 		// Make a SELECT to get All fields
-		objectData = new DBO.table({table: dbTable, key: identifier, keyValue: identifierValue}, init);
+		objectData = new DBO.table({table: dbTable, keys: table_identifiers}, init);
 		
 	});
 	debug.sql(query.sql);
@@ -1352,7 +1362,7 @@ if(DBO.cfg.enableArray) {
 			if (err) throw new Error(err);
 			
 			for(var i=0; i<rows.length; i++) {
-				fillData(rows[i]);
+				array.fillData(rows[i]);
 			}
 			
 			debug.info("Got " + rows.length + " rows from " + dbTable);
@@ -1362,58 +1372,7 @@ if(DBO.cfg.enableArray) {
 			if(callback) callback(array);
 			
 			
-			function fillData(data) {
-				var dimensionValue = [];
 
-				// Get dimension values
-				for(var i=0; i<dimensions.length; i++) {
-					// Do we need to do this for every row??
-					if(!data.hasOwnProperty(dimensions[i])) {
-						throw new Error("Can not find " + dimensions[i] + " in table " + dbTable);
-					}
-					dimensionValue[i] = data[dimensions[i]];
-					
-					console.log("dimensionValue[" + i + "]=" + dimensionValue[i] + " (" + dimensions[i] + ")")
-					
-					delete data[dimensions[i]];
-				}
-
-				/*
-				
-					array[d1][d2][d3]...
-				
-					How can I do this without if's !???
-				
-				*/
-				
-				if(totalDimensions == 1) {
-					array[ dimensionValue[0] ] = Object.create(DBO.table.prototype);
-					array[ dimensionValue[0] ].init(data, dbTable, dimensions[0], dimensionValue[0]);
-				}
-				else if(totalDimensions == 2) {
-					
-					if(!array[ dimensionValue[0] ]) {
-						array[ dimensionValue[0] ] = [];
-						
-						//array.push([]);
-						
-					}
-					
-					/*
-					if(array.length-1 != dimensionValue[0]) {
-						throw new Error("The Array is not in order or has empty spaces: " + (array.length-1) + " (array.length-1) != " + dimensionValue[0] + " (" + dimensions[0] + ")")
-					}
-					*/
-					
-					//console.log("array[" + dimensionValue[0] + "][" + dimensionValue[1] + "]");
-					
-					array[ dimensionValue[0] ][ dimensionValue[1] ] = Object.create(DBO.table.prototype);
-					array[ dimensionValue[0] ][ dimensionValue[1] ].init(data, dbTable, dimensions[0], dimensionValue[0]);
-				}
-				
-				
-				
-			}
 			
 		});
 		debug.sql(query.sql);
@@ -1428,7 +1387,83 @@ if(DBO.cfg.enableArray) {
 		
 	}
 
+	
+	DBO.Array.prototype.fillData = function(keyValues) {
 
+		var array = this,
+			dbTable = array.__table,
+			dimensions = array.__dimensions,
+			totalDimensions = dimensions.length,
+			constructor = array.__constructor,
+			dimensionValue = [],
+			table_identifiers = {},
+			arrayObject,
+			dataTable = Object.create(DBO.table.prototype),
+			datarow = clone(keyValues);
+			
+		// Get dimension values
+		for(var i=0; i<dimensions.length; i++) {
+			// Do we need to do this for every row??
+			if(!datarow.hasOwnProperty(dimensions[i])) {
+				throw new Error("Can not find " + dimensions[i] + " in table " + dbTable);
+			}
+			dimensionValue[i] = datarow[dimensions[i]];
+			
+			table_identifiers[dimensions[i]] = dimensionValue[i];
+			
+			debug.info("dimensionValue[" + i + "]=" + dimensionValue[i] + " (" + dimensions[i] + ")")
+			
+			delete datarow[dimensions[i]]; // Remove the dimensions from the actual data (or should we?)
+		}
+
+		
+		dataTable.init(datarow, dbTable, table_identifiers); // Set the data
+
+		/*
+			array[d1][d2][d3]...
+		
+			How can we do this without if's !??? if(totalDimensions == 1) else if(totalDimensions == 2) etc
+		*/
+		if(totalDimensions == 1) {
+			if(constructor) {
+				array[ dimensionValue[0] ] = new constructor(dataTable);
+			}
+			else {
+				array[ dimensionValue[0] ] = {}; // Vanilla object
+			}
+			array[ dimensionValue[0] ].data = dataTable;
+		}
+		else if(totalDimensions == 2) {
+			
+			if(!array[dimensionValue[0]]) {
+				// No other dimension exist, create one
+				array[dimensionValue[0]] = [];
+				
+				//array[dimensionValue[0]].push([]);
+			}
+			
+			/*
+			if(array[dimensionValue[0]].length-1 != dimensionValue[0]) {
+				throw new Error("The Array is not in order or has empty spaces: " + (array[dimensionValue[0]].length-1) + " (array[dimensionValue[0]].length-1) != " + dimensionValue[0] + " (" + dimensions[0] + ")")
+			}
+			*/
+			
+			//console.log("array[" + dimensionValue[0] + "][" + dimensionValue[1] + "]");
+
+			if(constructor) {
+				array[dimensionValue[0]][dimensionValue[1]] = new constructor(dataTable);
+			}
+			else {
+				array[dimensionValue[0]][dimensionValue[1]] = {}; // Vanilla object
+			}
+			
+			array[dimensionValue[0]][dimensionValue[1]].data = dataTable;
+
+		}
+		
+	}
+	
+	
 
 	DBO.Array.prototype.add = function(keyValues, callback) {
 		/*
@@ -1436,64 +1471,65 @@ if(DBO.cfg.enableArray) {
 			
 			keyValues should contain ALL data. Do not depend on database default fields. 
 		*/
-		
+
 		var array = this,
 			dbTable = array.__table,
 			dimensions = array.__dimensions,
-			constructor = array.__constructor,
 			async = (callback === false) ? false : true,
 			totalDimensions = dimensions.length,
-			object;
+			table_identifiers = {};
 		
 		// Check if keyValues contains dimensions
 		for(var i=0; i<totalDimensions; i++) {
 			if(!keyValues.hasOwnProperty(dimensions[i])) {
 				throw new Error("Data added to the Array do not contain a value for dimension " + i + ": " + dimensions[i] + "!");
 			}
+			table_identifiers[dimensions[i]] = keyValues[dimensions[i]];
 		}
 		
-		// Set object and Check if the new keys already exist
+		// Check if the index(es) already exist: Then update the data and exit
 		if(totalDimensions == 1) {
-			object = array[keyValues[dimensions[0]]];
-			if(objectData) {
+			if(array[keyValues[dimensions[0]]]) {
 				for(var key in keyValues) {
-					object.data[key] = keyValues[key];
+					array[keyValues[dimensions[0]]].data[key] = keyValues[key];
 				}
 				return;
 			}
 		}
 		else if(totalDimensions == 2) {
-			object = array[keyValues[dimensions[0]]]; // First dimension
-			
-			if(object) {
-				object = array[keyValues[dimensions[0]]][keyValues[dimensions[1]]]; // Both dimensions
+			if(array[keyValues[dimensions[0]]]) { // First dimension exist
 				
-				if(object) {
+				if(array[keyValues[dimensions[0]]][keyValues[dimensions[1]]]) { // First and second dimension exist
+					
+					debug.info("" + dimensions[0] + "=" + keyValues[dimensions[0]] + " " + dimensions[1] + "=" + keyValues[dimensions[1]] + " .data=" + array[keyValues[dimensions[0]]][keyValues[dimensions[1]]].data);
+					
 					for(var key in keyValues) {
-						object.data[key] = keyValues[key];
+						array[keyValues[dimensions[0]]][keyValues[dimensions[1]]].data[key] = keyValues[key];
 					}
 					return;
 				}
 			}
-			else {
-				object = []; // Create an Array for second dimension
-			}
 		}
 		
-		object = Object.create(DBO.table.prototype);
-		object.init(keyValues, dbTable, dimensions[0], keyValues[dimensions[0]]);
+
+		array.fillData(keyValues);
+		
 		
 		var query = database.query("INSERT INTO ?? SET ?", [dbTable, keyValues], function(err, result) {
 			if (err) throw new Error(err);
+
+			if(callback) {
+				callback();
+				//callback(array[keyValues[dimensions[0]]][keyValues[dimensions[1]]]);
 			
-			// Database query is async, but the data has already been set ...
-			if(callback) callback(object);
-			
+			}
 		});
 		debug.sql(query.sql);
 		
 	}
 }
+
+
 
 module.exports = DBO;
 
@@ -1510,6 +1546,19 @@ package.json needs to be saved in utf8 without BOM.
 
 */
 
+
+
+function createWhereString(keyValues) {
+	// WHERE a = 1 AND b = 2 AND c = 3
+	
+	var keys = Object.keys(keyValues);
+	
+	keys = keys.map(function (key) {
+		return "`" + key + "`='" + keyValues[key] + "'";
+	});
+	
+	return keys.join(" AND ");
+}
 
 
 function clone(obj) {
