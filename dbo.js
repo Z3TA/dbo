@@ -27,14 +27,13 @@ SOFTWARE.
 "use strict";
 
 // Dependencies
-var util = require("util"),
-	mysql = require("mysql"),
+var mysql = require("mysql"),
 	cli = require("cli-color"),
 	deasync = require("deasync");
 
 
 
-// Private variables and funtions ...
+// Private variables and functions ...
 
 var database,
 	db_config = {host: "127.0.0.1",	user: "startupgame", password : "wwwstartupgame", database: "startupgame"},
@@ -43,22 +42,22 @@ var database,
 	debug = {};
 
 debug.warn = function(msg) {
-	if(DBO.debug.showWarnings) {
+	if(DBO.cfg.debug.showWarnings) {
 		debug.log(msg, "yellow");
 	}
 }
 debug.sql = function(sql) {
-	if(DBO.debug.showSQL) {
+	if(DBO.cfg.debug.showSQL) {
 		debug.log(sql, "cyan");
 	}
 }
 debug.info = function(info) {
-	if(DBO.debug.showInfo) {
+	if(DBO.cfg.debug.showInfo) {
 		debug.log(info, "white");
 	}
 }
 debug.log = function(msg, color) {
-	if(DBO.debug.useColors) {
+	if(DBO.cfg.debug.useColors) {
 		console.log(cli[color](msg));
 	}
 	else {
@@ -100,18 +99,18 @@ function handleDbDisconnect() {
 
 var DBO = {}; 
 
-DBO.debug = {showSQL: true, showWarnings: true, useColors: true, showInfo: true};
 
 DBO.cfg = {};
 DBO.cfg.pointToParentInLinks = true;
 DBO.cfg.asyncListsCreation = false;
 DBO.cfg.checkHasProperty = true; // For optimization if we decide to be evil
 DBO.cfg.updateDelay = 1000; // Wait this many ms before pushing updates to the database
-DBO.cfg.Array = true; // If we should write to the Array.prototype
+DBO.cfg.enableArray = true; // If we should write to the Array.prototype
+DBO.cfg.debug = {showSQL: true, showWarnings: true, useColors: true, showInfo: true};
 
 
 if(Array.prototype.load || Array.prototype.add) {
-	DBO.cfg.Array = false;
+	DBO.cfg.enableArray = false;
 	debug.warn("Array already has prototype that dbo wants to use. DBO.Array will not be supported!" )
 }
 
@@ -1310,189 +1309,191 @@ DBO.log.prototype.list = function(keyValues, anyKey) {
 
 }
 
-/*
-	JavaScript does not support making custom Array objects. 
-	So we have to use native Arrays if we want to take advantage of how they operate.
-	http://perfectionkills.com/how-ecmascript-5-still-does-not-allow-to-subclass-an-array/
-*/
-DBO.Array = Array;
 
-DBO.Array.prototype.load = function(arg, callback) {
+if(DBO.cfg.enableArray) {
 	/*
-		Array with multi dimensions containing a DBO.table for each row. 
-		
-		Will run Async if callback function is defined.
-		
-		Use for tables that have many primary keys witch all are integers.
-		
-		If dimension key is larger then 4,294,967,295 (2^32) it might no longer be an Array
-		
+		JavaScript does not support making custom Array objects. 
+		So we have to use native Arrays if we want to take advantage of how they operate.
+		http://perfectionkills.com/how-ecmascript-5-still-does-not-allow-to-subclass-an-array/
 	*/
-	
-	if(!arg.dimensions) {
-		throw new Error("Array need to have at least one dimension. For example the primary key.")
-	}
-	
-	var array = this,
-		dbTable = arg.table,
-		dimensions = arg.dimensions,
-		constructor = arg.fun,
-		identifier = dimensions[0], // First dimension
-		totalDimensions = dimensions.length,
-		done = false;
+	DBO.Array = Array;
 
-	
-	Object.defineProperty(array, "__dimensions", { value: dimensions, enumerable: false });
-	Object.defineProperty(array, "__table", { value: dbTable, enumerable: false });
-	Object.defineProperty(array, "__constructor", { value: constructor, enumerable: false });
-
-	
-	var query = database.query("SELECT * FROM ?? ORDER BY ?", [dbTable, dimensions], function(err, rows) {
-		if (err) throw new Error(err);
+	DBO.Array.prototype.load = function(arg, callback) {
+		/*
+			Array with multi dimensions containing a DBO.table for each row. 
+			
+			Will run Async if callback function is defined.
+			
+			Use for tables that have many primary keys witch all are integers.
+			
+			If dimension key is larger then 4,294,967,295 (2^32) it might no longer be an Array
+			
+		*/
 		
-		for(var i=0; i<rows.length; i++) {
-			fillData(rows[i]);
+		if(!arg.dimensions) {
+			throw new Error("Array need to have at least one dimension. For example the primary key.")
 		}
 		
-		debug.info("Got " + rows.length + " rows from " + dbTable);
-		
-		done = true;
-		
-		if(callback) callback(array);
-		
-		
-		function fillData(data) {
-			var dimensionValue = [];
+		var array = this,
+			dbTable = arg.table,
+			dimensions = arg.dimensions,
+			constructor = arg.fun,
+			identifier = dimensions[0], // First dimension
+			totalDimensions = dimensions.length,
+			done = false;
 
-			// Get dimension values
-			for(var i=0; i<dimensions.length; i++) {
-				// Do we need to do this for every row??
-				if(!data.hasOwnProperty(dimensions[i])) {
-					throw new Error("Can not find " + dimensions[i] + " in table " + dbTable);
-				}
-				dimensionValue[i] = data[dimensions[i]];
-				
-				console.log("dimensionValue[" + i + "]=" + dimensionValue[i] + " (" + dimensions[i] + ")")
-				
-				delete data[dimensions[i]];
-			}
+		
+		Object.defineProperty(array, "__dimensions", { value: dimensions, enumerable: false });
+		Object.defineProperty(array, "__table", { value: dbTable, enumerable: false });
+		Object.defineProperty(array, "__constructor", { value: constructor, enumerable: false });
 
-			/*
+		
+		var query = database.query("SELECT * FROM ?? ORDER BY ?", [dbTable, dimensions], function(err, rows) {
+			if (err) throw new Error(err);
 			
-				array[d1][d2][d3]...
-			
-				How can I do this without if's !???
-			
-			*/
-			
-			if(totalDimensions == 1) {
-				array[ dimensionValue[0] ] = Object.create(DBO.table.prototype);
-				array[ dimensionValue[0] ].init(data, dbTable, dimensions[0], dimensionValue[0]);
+			for(var i=0; i<rows.length; i++) {
+				fillData(rows[i]);
 			}
-			else if(totalDimensions == 2) {
-				
-				if(!array[ dimensionValue[0] ]) {
-					array[ dimensionValue[0] ] = [];
+			
+			debug.info("Got " + rows.length + " rows from " + dbTable);
+			
+			done = true;
+			
+			if(callback) callback(array);
+			
+			
+			function fillData(data) {
+				var dimensionValue = [];
+
+				// Get dimension values
+				for(var i=0; i<dimensions.length; i++) {
+					// Do we need to do this for every row??
+					if(!data.hasOwnProperty(dimensions[i])) {
+						throw new Error("Can not find " + dimensions[i] + " in table " + dbTable);
+					}
+					dimensionValue[i] = data[dimensions[i]];
 					
-					//array.push([]);
+					console.log("dimensionValue[" + i + "]=" + dimensionValue[i] + " (" + dimensions[i] + ")")
 					
+					delete data[dimensions[i]];
 				}
-				
+
 				/*
-				if(array.length-1 != dimensionValue[0]) {
-					throw new Error("The Array is not in order or has empty spaces: " + (array.length-1) + " (array.length-1) != " + dimensionValue[0] + " (" + dimensions[0] + ")")
-				}
+				
+					array[d1][d2][d3]...
+				
+					How can I do this without if's !???
+				
 				*/
 				
-				//console.log("array[" + dimensionValue[0] + "][" + dimensionValue[1] + "]");
+				if(totalDimensions == 1) {
+					array[ dimensionValue[0] ] = Object.create(DBO.table.prototype);
+					array[ dimensionValue[0] ].init(data, dbTable, dimensions[0], dimensionValue[0]);
+				}
+				else if(totalDimensions == 2) {
+					
+					if(!array[ dimensionValue[0] ]) {
+						array[ dimensionValue[0] ] = [];
+						
+						//array.push([]);
+						
+					}
+					
+					/*
+					if(array.length-1 != dimensionValue[0]) {
+						throw new Error("The Array is not in order or has empty spaces: " + (array.length-1) + " (array.length-1) != " + dimensionValue[0] + " (" + dimensions[0] + ")")
+					}
+					*/
+					
+					//console.log("array[" + dimensionValue[0] + "][" + dimensionValue[1] + "]");
+					
+					array[ dimensionValue[0] ][ dimensionValue[1] ] = Object.create(DBO.table.prototype);
+					array[ dimensionValue[0] ][ dimensionValue[1] ].init(data, dbTable, dimensions[0], dimensionValue[0]);
+				}
 				
-				array[ dimensionValue[0] ][ dimensionValue[1] ] = Object.create(DBO.table.prototype);
-				array[ dimensionValue[0] ][ dimensionValue[1] ].init(data, dbTable, dimensions[0], dimensionValue[0]);
+				
+				
 			}
 			
-			
-			
-		}
+		});
+		debug.sql(query.sql);
 		
-	});
-	debug.sql(query.sql);
-	
-	if(!callback) {
-		while(!done) {
-			deasync.runLoopOnce();
-		}
-		
-		return array;
-	}
-	
-}
-
-
-
-DBO.Array.prototype.add = function(keyValues, callback) {
-	/*
-		Add values to an Array. 
-		
-		keyValues should contain ALL data. Do not depend on database default fields. 
-	*/
-	
-	var array = this,
-		dbTable = array.__table,
-		dimensions = array.__dimensions,
-		constructor = array.__constructor,
-		async = (callback === false) ? false : true,
-		totalDimensions = dimensions.length,
-		object;
-	
-	// Check if keyValues contains dimensions
-	for(var i=0; i<totalDimensions; i++) {
-		if(!keyValues.hasOwnProperty(dimensions[i])) {
-			throw new Error("Data added to the Array do not contain a value for dimension " + i + ": " + dimensions[i] + "!");
-		}
-	}
-	
-	// Set object and Check if the new keys already exist
-	if(totalDimensions == 1) {
-		object = array[keyValues[dimensions[0]]];
-		if(objectData) {
-			for(var key in keyValues) {
-				object.data[key] = keyValues[key];
+		if(!callback) {
+			while(!done) {
+				deasync.runLoopOnce();
 			}
-			return;
-		}
-	}
-	else if(totalDimensions == 2) {
-		object = array[keyValues[dimensions[0]]]; // First dimension
-		
-		if(object) {
-			object = array[keyValues[dimensions[0]]][keyValues[dimensions[1]]]; // Both dimensions
 			
-			if(object) {
+			return array;
+		}
+		
+	}
+
+
+
+	DBO.Array.prototype.add = function(keyValues, callback) {
+		/*
+			Add values to an Array. 
+			
+			keyValues should contain ALL data. Do not depend on database default fields. 
+		*/
+		
+		var array = this,
+			dbTable = array.__table,
+			dimensions = array.__dimensions,
+			constructor = array.__constructor,
+			async = (callback === false) ? false : true,
+			totalDimensions = dimensions.length,
+			object;
+		
+		// Check if keyValues contains dimensions
+		for(var i=0; i<totalDimensions; i++) {
+			if(!keyValues.hasOwnProperty(dimensions[i])) {
+				throw new Error("Data added to the Array do not contain a value for dimension " + i + ": " + dimensions[i] + "!");
+			}
+		}
+		
+		// Set object and Check if the new keys already exist
+		if(totalDimensions == 1) {
+			object = array[keyValues[dimensions[0]]];
+			if(objectData) {
 				for(var key in keyValues) {
 					object.data[key] = keyValues[key];
 				}
 				return;
 			}
 		}
-		else {
-			object = []; // Create an Array for second dimension
+		else if(totalDimensions == 2) {
+			object = array[keyValues[dimensions[0]]]; // First dimension
+			
+			if(object) {
+				object = array[keyValues[dimensions[0]]][keyValues[dimensions[1]]]; // Both dimensions
+				
+				if(object) {
+					for(var key in keyValues) {
+						object.data[key] = keyValues[key];
+					}
+					return;
+				}
+			}
+			else {
+				object = []; // Create an Array for second dimension
+			}
 		}
+		
+		object = Object.create(DBO.table.prototype);
+		object.init(keyValues, dbTable, dimensions[0], keyValues[dimensions[0]]);
+		
+		var query = database.query("INSERT INTO ?? SET ?", [dbTable, keyValues], function(err, result) {
+			if (err) throw new Error(err);
+			
+			// Database query is async, but the data has already been set ...
+			if(callback) callback(object);
+			
+		});
+		debug.sql(query.sql);
+		
 	}
-	
-	object = Object.create(DBO.table.prototype);
-	object.init(keyValues, dbTable, dimensions[0], keyValues[dimensions[0]]);
-	
-	var query = database.query("INSERT INTO ?? SET ?", [dbTable, keyValues], function(err, result) {
-		if (err) throw new Error(err);
-		
-		// Database query is async, but the data has already been set ...
-		if(callback) callback(object);
-		
-	});
-	debug.sql(query.sql);
-	
 }
-
 
 module.exports = DBO;
 
