@@ -1,18 +1,18 @@
-﻿# DBO: Persistant data abstraction module
+﻿# DBO: Persistent data abstraction module
 
 ## ALERT: This is alpha, wait for >1.0.0 for stable. There might be breaking changes in all 0.x versions
 
 
 Your DBA guy will be happy you'll be using a SQL relational database, and your JS hackers will be happy about using no-SQL. And you will be happy about getting the advantage of both!
 
-This module for nodejs/iojs makes it easier to manage data and make data persistant between app restarts.
+This module for nodejs/iojs makes it easier to manage data and make data persistent between app restarts.
 
 Database selects, updates and inserts will be done automatically! 
 
-An object oriented aproach is not required but recommended.
-Constructor functions can be passed and objects will be constructed automatically. Getters and setters work like normal, with the added benefits of the data being persistant and stored in a database, and on a hard drive, but accessed from memory. Data is updated immediately and sent to the database asynchronously in the background.
+An object oriented approach is not required but recommended.
+Constructor functions can be passed and objects will be constructed automatically. Getters and setters work like normal, with the added benefits of the data being persistent and stored in a database, and on a hard drive, but accessed from memory. Data is updated immediately and sent to the database asynchronously in the background.
 
-Note that, in order for this module to work, you must have acccess to a mySQL database and you have to create the datbase schema! This module will not ALTER TABLE or CREATE TABLE.
+Note that, in order for this module to work, you must have access to a mySQL database and you have to create the database schema! This module will not ALTER TABLE or CREATE TABLE.
 
 It (currently) only works with mySQL databases.
 
@@ -61,9 +61,9 @@ for(var id in player.weapons) {
 weapon.fireAt(players["Napoleon"]);
 ```
 
-You only have to remember one function (DBO.list) to make your data persistant.
+You only have to remember one function (DBO.list) to make your data persistent.
 
-The "data" will always be under .data, stored as an assosiative array with key, value pairs. We choose to have all "data" under a data attribute to make sure other attributes or functions are not overwritten.
+The "data" will always be under .data, stored as an associative array with key, value pairs. We choose to have all "data" under a data attribute to make sure other attributes or functions are not overwritten.
 
 Make sure you use unique identifiers (primary keys) like name, or id (with auto-increment) when you design the database schema!
 
