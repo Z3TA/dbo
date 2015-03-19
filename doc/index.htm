@@ -130,6 +130,24 @@ players.kill("Jon Doe");
 
 
 
+<h2>DBO.Array</h2>
+
+<p>Modified JS Array to hold the data.</p>
+
+<p>Useful ff you want a pure Array instead of a object literal.</p>
+
+<pre class="prettyprint">
+var spacemap = new DBO.Array();
+
+spacemap.load({table: "spacemap", dimensions: ["x", "y"], fun: Spaceobject}, false);
+spacemap.add({x: 0, y:2, type:"asteroid", type_id: 71});
+console.log("spacemap.length=" + spacemap.length);
+console.log(JSON.stringify(spacemap, null, 2));
+</pre>
+
+
+
+
 
 <h2>DBO.log</h2>
 
@@ -173,7 +191,7 @@ console.log( "Total attacks made by player " + playerId + " on player " + otherP
 
 <pre class="prettyprint">
 var player = new Player();
-player.data = new DBO.table({table: "player", key: "name", keyValue: "Johan"}, doStuff);
+player.data = new DBO.table({table: "player", keys: ["name"], keyValue: "Johan"}, doStuff);
 
 function doStuff() {
 	player.doSomething();
