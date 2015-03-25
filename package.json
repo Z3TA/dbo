@@ -2,7 +2,7 @@
   "author": "Z3T4",
   "name": "dbo",
   "description": "Make your data persistent. Database abstraction.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "main": "./dbo.js",
   "keywords": [
     "Persistent data",
@@ -17,7 +17,7 @@
   },
   "repository": {
     "type" : "git",
-    "url" : "http://github.com/Z3TA/DBO.git"
+    "url" : "http://github.com/Z3TA/dbo.git"
   }
 }
 
