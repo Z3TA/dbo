@@ -348,7 +348,7 @@ DBO.list = function(arg, callback) {
 		var objData = Object.create(DBO.table.prototype); // We use Object.create here because we don't want to call the actual function. That would result in another database SELECT.
 		
 		var table_identifiers = {};
-		table_identifiers[identifier] = identifierValue;
+		table_identifiers[identifier] = row[identifier];
 		
 		objData.init(row, dbTable, table_identifiers);
 		//objData.init(row, dbTable, identifier, name);
