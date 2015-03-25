@@ -134,7 +134,9 @@ players.kill("Jon Doe");
 
 <p>Modified JS Array to hold the data.</p>
 
-<p>Useful ff you want a pure Array instead of a object literal.</p>
+<p>Useful if you want a pure Array instead of a object literal.</p>
+
+<p>Example use would be a game world map, where x, y are the dimensions.</p>
 
 <pre class="prettyprint">
 var spacemap = new DBO.Array();
@@ -144,6 +146,8 @@ spacemap.add({x: 0, y:2, type:"asteroid", type_id: 71});
 console.log("spacemap.length=" + spacemap.length);
 console.log(JSON.stringify(spacemap, null, 2));
 </pre>
+
+<p>If the Array will have holes in it (Posts might be deleted), consider using DBO.List instead.</p>
 
 
 
