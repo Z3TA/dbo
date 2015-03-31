@@ -709,12 +709,18 @@ DBO.list.prototype.count = function(keyValues) {
 DBO.list.prototype.sum = function(key) {
 	// Takes any object, a list or the return from list.search and count a field with float type
 	var sum = 0,
-		obj = this;
+		list = this;
 	
-	for(var i in obj) {
-		if(obj[i].hasOwnProperty(key)) {
-			sum += obj[i][key];
+	for(var id in list) {
+		if(list.hasOwnProperty(id)) {
+			if(list[id].data.hasOwnProperty(key)) {
+				sum += list[id].data[key];
+			}
 		}
+		else {
+			console.log(id + " ???");
+		}
+
 	}
 	
 	return sum;	
@@ -929,6 +935,7 @@ Object.defineProperty(DBO.list.prototype, "search", {enumerable: false, value: D
 Object.defineProperty(DBO.list.prototype, "count", {enumerable: false, value: DBO.list.prototype.count});
 Object.defineProperty(DBO.list.prototype, "sum", {enumerable: false, value: DBO.list.prototype.sum});
 Object.defineProperty(DBO.list.prototype, "find", {enumerable: false, value: DBO.list.prototype.find});
+Object.defineProperty(DBO.list.prototype, "filter", {enumerable: false, value: DBO.list.prototype.filter});
 Object.defineProperty(DBO.list.prototype, "shuffledKeys", {enumerable: false, value: DBO.list.prototype.shuffledKeys});
 Object.defineProperty(DBO.list.prototype, "sortedKeys", {enumerable: false, value: DBO.list.prototype.sortedKeys});
 
