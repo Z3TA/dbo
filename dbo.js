@@ -712,18 +712,10 @@ DBO.list.prototype.sum = function(key) {
 		list = this;
 	
 	for(var id in list) {
-		if(list.hasOwnProperty(id)) {
-			if(list[id].data.hasOwnProperty(key)) {
-				sum += list[id].data[key];
-			}
-		}
-		else {
-			console.log(id + " ???");
-		}
-
+		sum += list[id].data[key];
 	}
 	
-	return sum;	
+	return sum;
 }
 
 
