@@ -783,6 +783,29 @@ DBO.list.prototype.find = function(keyValues) {
 	return matchingObjects;
 }
 
+DBO.list.prototype.filter = function(fun) {
+	/*
+	
+	Filter a list using a function that returns true or false
+	
+	*/
+	var list = this,
+		keys = Object.keys(list),
+		filtredList = Object.create(DBO.list.prototype);
+		
+	for(var i=0; i<keys.length; i++) {
+		check(keys[i]);
+	}
+
+	function check(key) {
+		if(fun(list[key].data)) filtredList[key] = list[key];
+	}
+	
+	return filtredList;
+}
+
+
+
 DBO.list.prototype.shuffledKeys = function() {
 	var list = this,
 		keys = Object.keys(list);
