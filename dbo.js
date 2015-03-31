@@ -284,7 +284,16 @@ DBO.list = function(arg, callback) {
 		identifier = arg.key,
 		done = false;
 		
-	if(!database) {
+	Object.defineProperty(list, "__table", { value: dbTable, enumerable: false });
+	Object.defineProperty(list, "__constructor", { value: constructor, enumerable: false });
+	Object.defineProperty(list, "__identifier", { value: identifier, enumerable: false });
+	Object.defineProperty(list, "__links", { value: [], enumerable: false });
+	
+	if(dbTable === false) {
+		debug.warn("No database will be used for persistant storage!");
+		return;
+	}
+	else if(!database) {
 		throw new Error("You need to connect to a database! See DBO.connect()");
 	}
 	else if(!dbTable) {
@@ -324,10 +333,7 @@ DBO.list = function(arg, callback) {
 	});
 	debug.sql(query.sql);
 	
-	Object.defineProperty(list, "__table", { value: dbTable, enumerable: false });
-	Object.defineProperty(list, "__constructor", { value: constructor, enumerable: false });
-	Object.defineProperty(list, "__identifier", { value: identifier, enumerable: false });
-	Object.defineProperty(list, "__links", { value: [], enumerable: false });
+
 
 
 	if(DBO.cfg.asyncListsCreation === false) {
@@ -400,7 +406,7 @@ DBO.list.prototype.add = function(values, callback) {
 		
 	}
 	
-	if(database) {
+	if(dbTable) {
 		var query = database.query("INSERT INTO ?? SET ?", [dbTable, values], function(err, result) {
 			if (err) throw new Error(err);
 			
@@ -421,24 +427,12 @@ DBO.list.prototype.add = function(values, callback) {
 	}
 	else {
 		
-		// OFFLINE MODE (init without updateLinks())
-		debug.warn("Not connected to any database!");
+		// OFFLINE MODE
+		debug.warn("The data added will not be stored in the database!");
 		
 		objectData = values;
 
-		if(list.__constructor) {
-			object = new list.__constructor(objectData); // We use new here so that the object function is called
-		}
-		else {
-			object = {}; // New vanilla object
-		}
-		
-		object.data = objectData;
-	
-		// Insert the new object to the list
-		list[identifierValue] = object; 
-		
-		if(callback) callback(object);
+		init();
 		
 	}
 	
@@ -990,8 +984,15 @@ DBO.log = function(arg, callback) {
 		done = false,
 		recursiveCount = 0,
 		recursiveDone = keys.length;
-
-	if(!database) {
+		
+	Object.defineProperty(log, "__table", { value: dbTable, enumerable: false });
+	Object.defineProperty(log, "__keys", { value: keys, enumerable: false });
+		
+	if(dbTable === false) {
+		debug.warn("No database will be used for persistant storage!");
+		return;
+	}
+	else if(!database) {
 		throw new Error("You need to connect to a database! See DBO.connect()");
 	}
 	else if(!dbTable) {
@@ -1005,10 +1006,6 @@ DBO.log = function(arg, callback) {
 		listedTables.push(dbTable);
 	}
 	
-	
-	Object.defineProperty(log, "__table", { value: dbTable, enumerable: false });
-	Object.defineProperty(log, "__keys", { value: keys, enumerable: false });
-
 	
 	recurse(log, keys, {});
 	
@@ -1262,14 +1259,19 @@ DBO.log.prototype.add = function(values, callback) {
 
 	}
 	
-	var query = database.query("INSERT INTO ?? SET ?", [dbTable, values], function(err, result) {
-		if (err) throw new Error(err);
-		
-		done = true;
-		
-		if(callback) callback();
-	});
-	debug.sql(query.sql);
+	if(dbTable) {
+		var query = database.query("INSERT INTO ?? SET ?", [dbTable, values], function(err, result) {
+			if (err) throw new Error(err);
+			
+			done = true;
+			
+			if(callback) callback();
+		});
+		debug.sql(query.sql);
+	}
+	else {
+		debug.warn("Entry not saved to database!");
+	}
 	
 }
 
