@@ -21,7 +21,7 @@
 
 <div id="container">
 
-<h1>DBO: Persistant data abstraction module</h1>
+<h1>DBO: Persistent data abstraction module</h1>
 
 
 
@@ -119,7 +119,7 @@ players.kill("Jon Doe");
 
 <p>The primary key need to be passed as argument.</p>
 
-<p>Note that you should kill the childs before killing the parent:</p>
+<p>Note that you should kill the child's before killing the parent:</p>
 
 <pre class="prettyprint">
 for(var id in players["Jon Doe"].armies) {
@@ -155,7 +155,7 @@ console.log(JSON.stringify(spacemap, null, 2));
 
 <h2>DBO.log</h2>
 
-<p>Works like DBO.list, but do not keep the data in memory. Only the amount of inserts are saved. Intented use for statisitcs of huge data that do not fit in memory.</p>
+<p>Works like DBO.list, but do not keep the data in memory. Only the amount of inserts are saved. Intended use for statistics of huge data that do not fit in memory.</p>
 
 <pre class="prettyprint">
 var attacks = DBO.log({table: attacks, keys: [attacker, defender]);
@@ -175,9 +175,9 @@ console.log( "Total attacks made by player " + playerId + " on player " + otherP
 
 <h3>.count</h3>
 
-<p>Counts data entreis. Works like a SELECT Count(*). But without the database roundtrip!</p>
+<p>Counts data entries. Works like a SELECT Count(*). But without the database round-trip!</p>
 
-<p>The value can be retrived directly without calling .count:</p>
+<p>The value can be retrieved directly without calling .count:</p>
 
 <pre class="prettyprint">
 console.log("Total attacks made by player " + playerId + ": " + attacks["attacker"][playerId].__total;
