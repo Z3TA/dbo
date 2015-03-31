@@ -122,6 +122,7 @@ if(Array.prototype.load || Array.prototype.add) {
 
 
 DBO.connect = function(dbCfg) {
+
 	db_config = dbCfg;
 	
 	if(database) {
@@ -230,7 +231,7 @@ DBO.table.prototype.define = function (name, currentValue) {
 				throw new Error("The new value for " + name + " is NaN!");
 			}
 			else if(value == null) {
-				dbo.warn("The new value for " + name + " is null!");
+				debug.warn("The new value for " + name + " is null!");
 			}
 			
 			/*
@@ -399,24 +400,47 @@ DBO.list.prototype.add = function(values, callback) {
 		
 	}
 	
-	var query = database.query("INSERT INTO ?? SET ?", [dbTable, values], function(err, result) {
-		if (err) throw new Error(err);
+	if(database) {
+		var query = database.query("INSERT INTO ?? SET ?", [dbTable, values], function(err, result) {
+			if (err) throw new Error(err);
+			
+			if(!identifierValue) {
+				identifierValue = result.insertId;
+			}
+			
+			// We now got the identifierValue but have to wait for the data before inserting the new objec to the list ...
+			
+			var table_identifiers = {};
+			table_identifiers[identifier] = identifierValue;
+			
+			// Make a SELECT to get All fields
+			objectData = new DBO.table({table: dbTable, keys: table_identifiers}, init);
+			
+		});
+		debug.sql(query.sql);
+	}
+	else {
 		
-		if(!identifierValue) {
-			identifierValue = result.insertId;
+		// OFFLINE MODE (init without updateLinks())
+		debug.warn("Not connected to any database!");
+		
+		objectData = values;
+
+		if(list.__constructor) {
+			object = new list.__constructor(objectData); // We use new here so that the object function is called
+		}
+		else {
+			object = {}; // New vanilla object
 		}
 		
-		// We now got the identifierValue but have to wait for the data before inserting the new objec to the list ...
-		
-		var table_identifiers = {};
-		table_identifiers[identifier] = identifierValue;
-		
-		// Make a SELECT to get All fields
-		objectData = new DBO.table({table: dbTable, keys: table_identifiers}, init);
-		
-	});
-	debug.sql(query.sql);
+		object.data = objectData;
 	
+		// Insert the new object to the list
+		list[identifierValue] = object; 
+		
+		if(callback) callback(object);
+		
+	}
 	
 	function init() {
 	
