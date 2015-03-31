@@ -622,6 +622,11 @@ DBO.list.prototype.first = function() {
 
 
 DBO.list.prototype.search = function(keyValues) {
+	/*
+	
+		Works like AND ... AND ...
+	
+	*/
 	var list = this,
 		identifier = list.__identifier,
 		identifierValue,
@@ -730,6 +735,7 @@ DBO.list.prototype.find = function(keyValues) {
 		}
 	
 	
+		Works like OR ... OR ...
 	
 	*/
 	
