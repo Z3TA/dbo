@@ -24,6 +24,20 @@ SOFTWARE.
 */
 
 
+/*
+
+NOTES
+=====
+
+Async update
+------------
+We can wait for .load but never for .add 
+Data from .add needs to be available right away!
+
+
+*/
+
+
 "use strict";
 
 // Dependencies
@@ -107,7 +121,7 @@ var DBO = {};
 
 DBO.cfg = {};
 DBO.cfg.pointToParentInLinks = true;
-DBO.cfg.asyncListsCreation = false;
+DBO.cfg.asyncListsCreation = false; // If false, we have to wait for the list to populate
 DBO.cfg.checkHasProperty = true; // For optimization if we decide to be evil
 DBO.cfg.updateDelay = 1000; // Wait this many ms before pushing updates to the database
 DBO.cfg.enableArray = true; // If we should write to the Array.prototype
@@ -134,18 +148,25 @@ DBO.connect = function(dbCfg) {
 }
 
 DBO.disconnect = function(callback) {
-	database.end(function(err) {
-		if(callback) callback();
+	
+	// Wait for possible timeouts before disconnecting (maybe we should keep track of all tables!?)
+	setTimeout(function() {
 		
-		if(err) throw err;
+		database.end(function(err) {
+			if(callback) callback();
+			
+			if(err) throw err;
 
-	});
+		});
+		
+	}, DBO.cfg.updateDelay + 100);
+	
 }
 
 
-DBO.table = function(arg, callback) {
+DBO.Table = function(arg, callback) {
 	/*
-		The DBO.table holds the *data* object.
+		The DBO.Table holds the *data* object.
 	
 	*/
 	
@@ -187,7 +208,7 @@ DBO.table = function(arg, callback) {
 
 
 
-DBO.table.prototype.init = function(data, dbTable, identifiers) {
+DBO.Table.prototype.init = function(data, dbTable, identifiers, inserted) {
 	var table = this;
 	
 	if(!dbTable) {
@@ -200,26 +221,24 @@ DBO.table.prototype.init = function(data, dbTable, identifiers) {
 	
 	Object.defineProperty(table, "__table", { value: dbTable, enumerable: false });
 	Object.defineProperty(table, "__identifiers", { value: identifiers, enumerable: false });
-	Object.defineProperty(table, "__timers", { value: {}, enumerable: false });
+	Object.defineProperty(table, "__updateTimer", { value: {}, enumerable: false, writable: true });
+	Object.defineProperty(table, "__changed", { value: {}, enumerable: false, writable: true });
+	Object.defineProperty(table, "__hasChanged", { value: false, enumerable: false, writable: true });
+	Object.defineProperty(table, "__inserted", { value: inserted, enumerable: false, writable: true });
 
 	for(var field in data) {
 		table.define(field, data[field]);
-		table.__timers[field] = false;
 	}
 	
 	// Object.keys(data).forEach(table.define);
 	
 }
 
-DBO.table.prototype.define = function (name, currentValue) {
-	// Call Object.defineProperty on the attribute to add getter and setter
-	
-	var table = this,
-		dbTable = table.__table,
-		identifiers = table.__identifiers,
-		where = createWhereString(identifiers);
-	
-	//table[name] = data[name];
+DBO.Table.prototype.define = function (name, currentValue) {
+	var table = this;
+	/*
+		Call Object.defineProperty on the attribute to add getter and setter
+	*/
 	Object.defineProperty( table, name, {
 		get: function(){ return currentValue; },
 		set: function(value) {
@@ -237,26 +256,22 @@ DBO.table.prototype.define = function (name, currentValue) {
 			/*
 			console.log(JSON.stringify(value) + " = " + value);
 			
-			console.log("dbTable=" + dbTable);
+			console.log("dbTable=" + table.__table);
 			console.log("name=" + name);
-			console.log("identifiers=" + JSON.stringify(identifiers));
+			console.log("identifiers=" + JSON.stringify(table.__identifiers));
 			*/
 			
 			// Database queries are costly, so check if the value actually updates before updating it.
 			if(currentValue != value) {
 				
-				clearTimeout(table.__timers[name]);
+				table.__changed[name] = true;
 				
-				table.__timers[name] = setTimeout(function() {
-					
-					var query = database.query("UPDATE ?? SET ?? = ? WHERE " + where, [dbTable, name, value, identifiers], function(err, result) {
-						if (err) throw new Error(err);
-					});
-					
-					debug.sql(query.sql);
-					
-				}, DBO.cfg.updateDelay);
-
+				table.__hasChanged = true;
+				
+				// Set update timer if it's not set
+				if(!timeoutSet(table.__updateTimer)) {
+					table.__updateTimer = setTimeout(function() {table.update();}, DBO.cfg.updateDelay)
+				}
 			}
 			
 			currentValue = value;
@@ -266,8 +281,42 @@ DBO.table.prototype.define = function (name, currentValue) {
 	});
 }
 
+DBO.Table.prototype.update = function () {
+	var table = this;
+	/*
+		Update all changed fields
+		
+		Only make an UPDATE if the row has been INSERT:ed 
+	*/
+	
+	debug.info("update called. inserted=" + table.__inserted + " hasChanged=" + table.__hasChanged);
+	
+	//console.log(JSON.stringify(table));
+	
+	if(table.__inserted && table.__hasChanged) {
+	
+		var fields = {};
+		
+		for(var name in table.__changed) {
+			fields[name] = table[name];
+			
+			table.__changed[name] = false;
+		}
+		
+		table.__hasChanged = false;
+		
+		var query = database.query("UPDATE ?? SET ? WHERE " + createWhereString(table.__identifiers), [table.__table, fields], function(err, result) {
+			if (err) throw new Error(err);
+		});
+		
+		debug.sql(query.sql);
+		
+	}
+}
 
-DBO.list = function(arg, callback) {
+
+
+DBO.List = function(arg, callback) {
 
 	/*
 		
@@ -281,16 +330,18 @@ DBO.list = function(arg, callback) {
 		data,
 		dbTable = arg.table,
 		constructor = arg.fun,
-		identifier = arg.key,
+		identifier = arg.key || "id",
 		done = false;
 		
 	Object.defineProperty(list, "__table", { value: dbTable, enumerable: false });
 	Object.defineProperty(list, "__constructor", { value: constructor, enumerable: false });
 	Object.defineProperty(list, "__identifier", { value: identifier, enumerable: false });
 	Object.defineProperty(list, "__links", { value: [], enumerable: false });
+	Object.defineProperty(list, "__column", { value: {}, enumerable: false });
+	Object.defineProperty(list, "__increment", { value: 0, enumerable: false, writable: true });
 	
 	if(dbTable === false) {
-		debug.warn("No database will be used for persistant storage!");
+		debug.warn("No database will be used for persistent storage!");
 		return;
 	}
 	else if(!database) {
@@ -303,10 +354,6 @@ DBO.list = function(arg, callback) {
 		throw new Error("Can not have a callback when DBO.cfg.asyncListsCreation is set to false!");
 	}
 	
-	if(!identifier) {
-		identifier = "id";
-	}
-	
 	if(listedTables.indexOf(dbTable) > -1) {
 		throw new Error("Table " + dbTable + " already linked!"); 
 	}
@@ -314,28 +361,36 @@ DBO.list = function(arg, callback) {
 		listedTables.push(dbTable);
 	}
 	
-	var query = database.query("SELECT * FROM ??", [dbTable], function(err, rows) {
+	var query = database.query("SHOW COLUMNS FROM ??", [dbTable], function(err, rows) {
 		if (err) throw new Error(err);
-		var counter = 0;
 		
 		for(var i=0; i<rows.length; i++) {
-			
-			fillData(rows[i])
-
-			
+			list.__column[rows[i].Field] = {default: rows[i].Default, auto_increment: (rows[i].Extra == "auto_increment")}
 		}
 		
-		done = true;
+		if(!list.__column[identifier]) {
+			throw new Error("" + dbTable + " do not have column " + identifier + "!");
+		}
 		
-		if(callback && DBO.cfg.asyncListsCreation) callback();
-		
+		if(list.__column[identifier].auto_increment) {
+			// The (primary) key has "auto_increment". Get the current AUTO_INCREMENT value
+			var query = database.query("SELECT `AUTO_INCREMENT` FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?", [db_config.database, dbTable], function(err, rows) {
+				if (err) throw new Error(err);
+					
+				list.__increment = rows[0].AUTO_INCREMENT;
+				
+				selectData();
+			});
+			debug.sql(query.sql);
+		}
+		else {
+			selectData();
+		}
 		
 	});
 	debug.sql(query.sql);
 	
-
-
-
+	
 	if(DBO.cfg.asyncListsCreation === false) {
 		while(!done) {
 			deasync.runLoopOnce();
@@ -343,36 +398,52 @@ DBO.list = function(arg, callback) {
 		
 		if(callback) callback();
 	}
+	
+	function selectData() {
+		var query = database.query("SELECT * FROM ??", [dbTable], function(err, rows) {
+			if (err) throw new Error(err);
+			
+			for(var i=0; i<rows.length; i++) {
+				fillData(rows[i])
+			}
+			
+			done = true;
+			
+			if(callback && DBO.cfg.asyncListsCreation) callback();
+
+		});
+		debug.sql(query.sql);
+	}
 
 	function fillData(row) {
 
 		var name = row[identifier];
 		
 		if(!name) {
-			throw new Error("No identifier (" + identifier + ") exist in " + dbTable + ". Please use one field as a primary key!");
+			throw new Error("No identifier (" + identifier + ") exist in " + dbTable + ". Please use one key as primary!");
 		}
 		
-		var objData = Object.create(DBO.table.prototype); // We use Object.create here because we don't want to call the actual function. That would result in another database SELECT.
+		var dataTable = Object.create(DBO.Table.prototype); // We use Object.create here because we don't want to call the actual function. That would result in another database SELECT.
 		
 		var table_identifiers = {};
 		table_identifiers[identifier] = row[identifier];
 		
-		objData.init(row, dbTable, table_identifiers);
-		//objData.init(row, dbTable, identifier, name);
+		dataTable.init(row, dbTable, table_identifiers, true);
 		
 		
 		if(constructor) {
-			list[name] = new constructor(objData); // Important we use new here so that the object function is called.
+			list[name] = new constructor(dataTable); // Important we use new here so that the object function is called.
 		}
 		else {
 			list[name] = {};
 		}
 		
-		list[name].data = objData;
+		list[name].data = dataTable;
 
-		
+		/*
 		Object.defineProperty(list[name].data, "__identifier", { value: identifier, enumerable: false });
 		Object.defineProperty(list[name].data, "__identifierValue", { value: row[identifier], enumerable: false });
+		*/
 		
 	}
 	
@@ -380,22 +451,35 @@ DBO.list = function(arg, callback) {
 }
 
 
-DBO.list.prototype.add = function(values, callback) {
+DBO.List.prototype.add = function(values) {
 	var list = this,
 		object,
-		objectData,
+		dataTable,
 		dbTable = list.__table,
 		identifier = list.__identifier,
 		identifierValue,
-		async = (callback === false) ? false : true;
+		table_identifiers = {},
+		defaultValues = {};
 	
 
-
-		
-	/* We can be sure that identifier has been defined and exists! Or DBO.list would have thrown an error when doing the database SELECT.
+	/* We can be sure that identifier has been defined and exists! Or DBO.List would have thrown an error when doing the database SELECT.
 	   But if the identifier is not in the values, we have to wait for last inserted id before creating the new list object!
 	*/
 	
+	// if auto_increment ... 
+	
+	// Default values
+	for(var columnName in list.__column) {
+		if(values.hasOwnProperty(columnName)) {
+			defaultValues[columnName] = values[columnName];
+		}
+		else {
+			defaultValues[columnName] = list.__column[columnName].default; // it's OK if this is undefined
+		}
+	}
+	
+
+	// Get the value for the primary key
 	if(values.hasOwnProperty(identifier)) {
 		identifierValue = values[identifier];
 		
@@ -403,62 +487,57 @@ DBO.list.prototype.add = function(values, callback) {
 		if(list[identifierValue]) {
 			throw new Error(identifier + " " + identifierValue + " already exist in the " + dbTable + "-list! " + identifier + " must be unique!");
 		}
+	}
+	else if(list.__column[identifier].auto_increment) {
+		identifierValue = list.__increment++;
 		
+		values[identifier] = identifierValue;
+		defaultValues[identifier] = identifierValue;
+	}
+	else {
+		throw new Error(identifier + " needs to have a value!")
 	}
 	
+	table_identifiers[identifier] = identifierValue;
+	
+	dataTable = Object.create(DBO.Table.prototype);
+	dataTable.init(defaultValues, dbTable, table_identifiers, false); // data, dbTable, identifiers(object literal), inserted
+	
+	if(list.__constructor) {
+		object = new list.__constructor(dataTable); // We use new here so that the object function is called
+	}
+	else {
+		object = {}; // New vanilla object
+	}
+	
+	object.data = dataTable;
+
+	// Insert the new object to the list
+	list[identifierValue] = object; 
+
+	updateLinks();
+
+	
 	if(dbTable) {
+		// Make the INSERT
 		var query = database.query("INSERT INTO ?? SET ?", [dbTable, values], function(err, result) {
+			/*
+				If there is an error here it's possible that the ID already exist because another app has made inserts.
+				That's why we will switch to Postgree in the future so that we can monitor inserts from other apps.
+			*/
 			if (err) throw new Error(err);
 			
-			if(!identifierValue) {
-				identifierValue = result.insertId;
-			}
-			
-			// We now got the identifierValue but have to wait for the data before inserting the new objec to the list ...
-			
-			var table_identifiers = {};
-			table_identifiers[identifier] = identifierValue;
-			
-			// Make a SELECT to get All fields
-			objectData = new DBO.table({table: dbTable, keys: table_identifiers}, init);
+			dataTable.__inserted = true;
 			
 		});
 		debug.sql(query.sql);
 	}
 	else {
-		
 		// OFFLINE MODE
-		debug.warn("The data added will not be stored in the database!");
-		
-		objectData = values;
-
-		init();
-		
+		debug.warn("The data added to " + dbTable + " was not inserted to the database!");
 	}
 	
-	function init() {
-	
-		// We should now have all the data available!
-	
-		if(list.__constructor) {
-			object = new list.__constructor(objectData); // We use new here so that the object function is called
-		}
-		else {
-			object = {}; // New vanilla object
-		}
-		
-		object.data = objectData;
-	
-		// Insert the new object to the list
-		list[identifierValue] = object; 
-	
-		updateLinks();
-		
-		if(callback) callback(object);
-	
-	}
-	
-	
+	return object;
 	
 	function updateLinks() {
 		// Keep the links up to date with the added object ...
@@ -492,7 +571,7 @@ DBO.list.prototype.add = function(values, callback) {
 }
 
 
-DBO.list.prototype.link = function(arg) {
+DBO.List.prototype.link = function(arg) {
 
 	// {list: shares, key: "player", attribute: "shareholders"}
 
@@ -532,7 +611,7 @@ DBO.list.prototype.link = function(arg) {
 			throw new Error(attribute + " in "  + objectIndex + " was going to be overwritten ... You probably don't want that, or there is a bug!");
 		}
 		else {
-			listObject[attribute] = Object.create(DBO.list.prototype);
+			listObject[attribute] = Object.create(DBO.List.prototype);
 		}
 		
 		
@@ -576,11 +655,11 @@ DBO.list.prototype.link = function(arg) {
 
 
 
-DBO.list.prototype.kill = function(keyValue) {
+DBO.List.prototype.kill = function(keyValue) {
 
-	var list = this
-		dbTable = list__table,
-		key = list__identifier;
+	var list = this,
+		dbTable = list.__table,
+		key = list.__identifier;
 	
 	delete list[keyValue];
 	
@@ -608,7 +687,7 @@ DBO.list.prototype.kill = function(keyValue) {
 	
 }
 
-DBO.list.prototype.rand = function() {
+DBO.List.prototype.rand = function() {
 	// Return a random object from the list
 	
 	var list = this,
@@ -618,7 +697,7 @@ DBO.list.prototype.rand = function() {
 	return list[key];	
 }
 
-DBO.list.prototype.first = function() {
+DBO.List.prototype.first = function() {
 	var list = this,
 		keys = Object.keys(list);
 	
@@ -639,7 +718,7 @@ DBO.list.prototype.first = function() {
 
 
 
-DBO.list.prototype.search = function(keyValues) {
+DBO.List.prototype.search = function(keyValues) {
 	/*
 	
 		Works like AND ... AND ...
@@ -648,7 +727,7 @@ DBO.list.prototype.search = function(keyValues) {
 	var list = this,
 		identifier = list.__identifier,
 		identifierValue,
-		foundObjects = Object.create(DBO.list.prototype),
+		foundObjects = Object.create(DBO.List.prototype),
 		allMatch = true,
 		keys,
 		obj;
@@ -705,7 +784,7 @@ DBO.list.prototype.search = function(keyValues) {
 	return foundObjects;
 }
 
-DBO.list.prototype.count = function(keyValues) {
+DBO.List.prototype.count = function(keyValues) {
 
 	/*
 	
@@ -724,7 +803,7 @@ DBO.list.prototype.count = function(keyValues) {
 }
 
 
-DBO.list.prototype.sum = function(key) {
+DBO.List.prototype.sum = function(key) {
 	// Takes any object, a list or the return from list.search and count a field with float type
 	var sum = 0,
 		list = this;
@@ -738,7 +817,7 @@ DBO.list.prototype.sum = function(key) {
 
 
 
-DBO.list.prototype.find = function(keyValues) {
+DBO.List.prototype.find = function(keyValues) {
 	
 	/*
 	
@@ -756,7 +835,7 @@ DBO.list.prototype.find = function(keyValues) {
 	*/
 	
 	var list = this,
-		matchingObjects = Object.create(DBO.list.prototype),
+		matchingObjects = Object.create(DBO.List.prototype),
 		item,
 		comparator = "",
 		compareValue,
@@ -799,7 +878,7 @@ DBO.list.prototype.find = function(keyValues) {
 	return matchingObjects;
 }
 
-DBO.list.prototype.filter = function(fun) {
+DBO.List.prototype.filter = function(fun) {
 	/*
 	
 	Filter a list using a function that returns true or false
@@ -807,7 +886,7 @@ DBO.list.prototype.filter = function(fun) {
 	*/
 	var list = this,
 		keys = Object.keys(list),
-		filtredList = Object.create(DBO.list.prototype);
+		filtredList = Object.create(DBO.List.prototype);
 		
 	for(var i=0; i<keys.length; i++) {
 		check(keys[i]);
@@ -822,7 +901,7 @@ DBO.list.prototype.filter = function(fun) {
 
 
 
-DBO.list.prototype.shuffledKeys = function() {
+DBO.List.prototype.shuffledKeys = function() {
 	var list = this,
 		keys = Object.keys(list);
 		
@@ -846,7 +925,7 @@ DBO.list.prototype.shuffledKeys = function() {
 }
 
 
-DBO.list.prototype.sortedKeys = function(sortBy) {
+DBO.List.prototype.sortedKeys = function(sortBy) {
 	var list = this,
 		keys = Object.keys(list),
 		keysSorted = keys.sort(sortFunction);
@@ -936,23 +1015,23 @@ DBO.list.prototype.sortedKeys = function(sortBy) {
 }
 
 // Hide the List.prototypes from enumerable
-Object.defineProperty(DBO.list.prototype, "add", {enumerable: false, value: DBO.list.prototype.add});
-Object.defineProperty(DBO.list.prototype, "link", {enumerable: false, value: DBO.list.prototype.link});
-Object.defineProperty(DBO.list.prototype, "kill", {enumerable: false, value: DBO.list.prototype.kill});
-Object.defineProperty(DBO.list.prototype, "rand", {enumerable: false, value: DBO.list.prototype.rand});
-Object.defineProperty(DBO.list.prototype, "first", {enumerable: false, value: DBO.list.prototype.first});
-Object.defineProperty(DBO.list.prototype, "search", {enumerable: false, value: DBO.list.prototype.search});
-Object.defineProperty(DBO.list.prototype, "count", {enumerable: false, value: DBO.list.prototype.count});
-Object.defineProperty(DBO.list.prototype, "sum", {enumerable: false, value: DBO.list.prototype.sum});
-Object.defineProperty(DBO.list.prototype, "find", {enumerable: false, value: DBO.list.prototype.find});
-Object.defineProperty(DBO.list.prototype, "filter", {enumerable: false, value: DBO.list.prototype.filter});
-Object.defineProperty(DBO.list.prototype, "shuffledKeys", {enumerable: false, value: DBO.list.prototype.shuffledKeys});
-Object.defineProperty(DBO.list.prototype, "sortedKeys", {enumerable: false, value: DBO.list.prototype.sortedKeys});
+Object.defineProperty(DBO.List.prototype, "add", {enumerable: false, value: DBO.List.prototype.add});
+Object.defineProperty(DBO.List.prototype, "link", {enumerable: false, value: DBO.List.prototype.link});
+Object.defineProperty(DBO.List.prototype, "kill", {enumerable: false, value: DBO.List.prototype.kill});
+Object.defineProperty(DBO.List.prototype, "rand", {enumerable: false, value: DBO.List.prototype.rand});
+Object.defineProperty(DBO.List.prototype, "first", {enumerable: false, value: DBO.List.prototype.first});
+Object.defineProperty(DBO.List.prototype, "search", {enumerable: false, value: DBO.List.prototype.search});
+Object.defineProperty(DBO.List.prototype, "count", {enumerable: false, value: DBO.List.prototype.count});
+Object.defineProperty(DBO.List.prototype, "sum", {enumerable: false, value: DBO.List.prototype.sum});
+Object.defineProperty(DBO.List.prototype, "find", {enumerable: false, value: DBO.List.prototype.find});
+Object.defineProperty(DBO.List.prototype, "filter", {enumerable: false, value: DBO.List.prototype.filter});
+Object.defineProperty(DBO.List.prototype, "shuffledKeys", {enumerable: false, value: DBO.List.prototype.shuffledKeys});
+Object.defineProperty(DBO.List.prototype, "sortedKeys", {enumerable: false, value: DBO.List.prototype.sortedKeys});
 
 
 
 
-DBO.log = function(arg, callback) {
+DBO.Log = function(arg, callback) {
 	
 	/*
 		
@@ -1138,7 +1217,7 @@ DBO.log = function(arg, callback) {
 	function fill(name, key) {
 	
 		// SELECT publisher, advertiser, Count(*) AS entries FROM views GROUP BY advertiser HAVING publisher = 100;
-		// If we had used a DBO.list we could have crunshed this, but as we are only storing Count(*)'s we have to make another db query
+		// If we had used a DBO.List we could have crunshed this, but as we are only storing Count(*)'s we have to make another db query
 		
 		log[name][key] = {}; // log["publisher1"].advertiser = {}
 		
@@ -1163,7 +1242,7 @@ DBO.log = function(arg, callback) {
 	
 }
 
-DBO.log.prototype.add = function(values, callback) {
+DBO.Log.prototype.add = function(values, callback) {
 	var log = this,
 		dbTable = log.__table,
 		keys = log.__keys,
@@ -1283,7 +1362,7 @@ DBO.log.prototype.add = function(values, callback) {
 	
 }
 
-DBO.log.prototype.count = function(keyValues) {
+DBO.Log.prototype.count = function(keyValues) {
 	var log = this,
 		keys = log.__keys,
 		value,
@@ -1325,7 +1404,7 @@ DBO.log.prototype.count = function(keyValues) {
 	
 }
 
-DBO.log.prototype.list = function(keyValues, anyKey) {
+DBO.Log.prototype.list = function(keyValues, anyKey) {
 	var log = this,
 		keys = log.__keys,
 		value,
@@ -1392,7 +1471,7 @@ if(DBO.cfg.enableArray) {
 
 	DBO.Array.prototype.load = function(arg, callback) {
 		/*
-			Array with multi dimensions containing a DBO.table for each row. 
+			Array with multi dimensions containing a DBO.Table for each row. 
 			
 			Will run Async if callback function is defined.
 			
@@ -1460,8 +1539,8 @@ if(DBO.cfg.enableArray) {
 			dimensionValue = [],
 			table_identifiers = {},
 			arrayObject,
-			dataTable = Object.create(DBO.table.prototype),
-			datarow = clone(keyValues);
+			dataTable = Object.create(DBO.Table.prototype),
+			datarow = clone(keyValues); // why?
 			
 		// Get dimension values
 		for(var i=0; i<dimensions.length; i++) {
@@ -1479,7 +1558,7 @@ if(DBO.cfg.enableArray) {
 		}
 
 		
-		dataTable.init(datarow, dbTable, table_identifiers); // Set the data
+		dataTable.init(datarow, dbTable, table_identifiers, true); // Set the data
 
 		/*
 			array[d1][d2][d3]...
@@ -1655,4 +1734,13 @@ function clone(obj) {
     }
 
     throw new Error("Unable to copy obj! Its type isn't supported.");
+}
+
+function timeoutSet(timeout) {
+	if(timeout._onTimeout) {
+		return true;
+	}
+	else {
+		return false;
+	}
 }
