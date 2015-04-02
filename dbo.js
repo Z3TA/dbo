@@ -1173,7 +1173,7 @@ DBO.log.prototype.add = function(values, callback) {
 	
 	for(var i=0, k; i<keys.length; i++) {
 		if(!values.hasOwnProperty(keys[i])) {
-			throw new Error("Data entry must have a " + keys[i] + "!");
+			throw new Error("Data entry must have a " + keys[i] + "!\n" + JSON.stringify(values, null, 2));
 		}
 	}
 	
@@ -1245,6 +1245,8 @@ DBO.log.prototype.add = function(values, callback) {
 				tree[value] = 1;
 			}
 			
+			//console.log(value + "=" + tree[value]);
+			
 		}
 		else {
 		
@@ -1270,7 +1272,13 @@ DBO.log.prototype.add = function(values, callback) {
 		debug.sql(query.sql);
 	}
 	else {
+		
+		// "Offline mode"
+		
 		debug.warn("Entry not saved to database!");
+		done = true;
+		
+		if(callback) callback();
 	}
 	
 }

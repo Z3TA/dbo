@@ -186,7 +186,13 @@ console.log( "Total attacks made by player " + playerId + " on player " + otherP
 </pre>
 
 
+<h3>.list</h3>
 
+<p>Select only a part of the log</p>
+
+<pre class="prettyprint">
+console.log(JSON.stringify(attacks.list({attacker: playerId}), null, 2));
+</pre>
 
 
 <h2>DBO.table</h2>
