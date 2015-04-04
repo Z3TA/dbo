@@ -322,7 +322,7 @@ DBO.List = function(arg, callback) {
 		
 		Creates a list of something, initiates and gives each item its data ...
 		
-		Each list item can only have one primary key (identifier) witch will be used to access the item as this is an associative array.
+		The first key will be used as index to the associative array.
 		
 	*/
 	
@@ -330,14 +330,14 @@ DBO.List = function(arg, callback) {
 		data,
 		dbTable = arg.table,
 		constructor = arg.fun,
-		identifier = arg.key || "id",
+		identifiers = arg.keys || ["id"],
 		done = false;
 		
 	Object.defineProperty(list, "__table", { value: dbTable, enumerable: false });
 	Object.defineProperty(list, "__constructor", { value: constructor, enumerable: false });
-	Object.defineProperty(list, "__identifier", { value: identifier, enumerable: false });
+	Object.defineProperty(list, "__identifiers", { value: identifiers, enumerable: false });
 	Object.defineProperty(list, "__links", { value: [], enumerable: false });
-	Object.defineProperty(list, "__column", { value: {}, enumerable: false });
+	Object.defineProperty(list, "__columns", { value: {}, enumerable: false });
 	Object.defineProperty(list, "__increment", { value: 0, enumerable: false, writable: true });
 	
 	if(dbTable === false) {
@@ -365,14 +365,17 @@ DBO.List = function(arg, callback) {
 		if (err) throw new Error(err);
 		
 		for(var i=0; i<rows.length; i++) {
-			list.__column[rows[i].Field] = {default: rows[i].Default, auto_increment: (rows[i].Extra == "auto_increment")}
+			list.__columns[rows[i].Field] = {default: rows[i].Default, auto_increment: (rows[i].Extra == "auto_increment")}
 		}
 		
-		if(!list.__column[identifier]) {
-			throw new Error("" + dbTable + " do not have column " + identifier + "!");
+		for(var i=0; i< identifiers.length; i++) {
+			if(!list.__columns[identifiers[i]]) {
+				throw new Error("" + dbTable + " do not have column " + identifiers[i] + "!");
+			}
 		}
+
 		
-		if(list.__column[identifier].auto_increment) {
+		if(list.__columns[identifiers[0]].auto_increment) {
 			// The (primary) key has "auto_increment". Get the current AUTO_INCREMENT value
 			var query = database.query("SELECT `AUTO_INCREMENT` FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?", [db_config.database, dbTable], function(err, rows) {
 				if (err) throw new Error(err);
@@ -417,16 +420,15 @@ DBO.List = function(arg, callback) {
 
 	function fillData(row) {
 
-		var name = row[identifier];
-		
-		if(!name) {
-			throw new Error("No identifier (" + identifier + ") exist in " + dbTable + ". Please use one key as primary!");
-		}
+		var name = row[identifiers[0]];
 		
 		var dataTable = Object.create(DBO.Table.prototype); // We use Object.create here because we don't want to call the actual function. That would result in another database SELECT.
 		
 		var table_identifiers = {};
-		table_identifiers[identifier] = row[identifier];
+		
+		for(var i=0; i< identifiers.length; i++) {
+			table_identifiers[identifiers[i]] = row[identifiers[i]];
+		}
 		
 		dataTable.init(row, dbTable, table_identifiers, true);
 		
@@ -440,10 +442,6 @@ DBO.List = function(arg, callback) {
 		
 		list[name].data = dataTable;
 
-		/*
-		Object.defineProperty(list[name].data, "__identifier", { value: identifier, enumerable: false });
-		Object.defineProperty(list[name].data, "__identifierValue", { value: row[identifier], enumerable: false });
-		*/
 		
 	}
 	
@@ -456,52 +454,56 @@ DBO.List.prototype.add = function(values) {
 		object,
 		dataTable,
 		dbTable = list.__table,
-		identifier = list.__identifier,
-		identifierValue,
-		table_identifiers = {},
-		defaultValues = {};
+		identifiers = list.__identifiers, // Keys used to identify rows
+		columns = list.__columns, // List of all columns, with default values
+		identifierValues = {}, // Values used to identify this row
+		dataValues = {}; // Values to populate the data table
+
 	
 
-	/* We can be sure that identifier has been defined and exists! Or DBO.List would have thrown an error when doing the database SELECT.
-	   But if the identifier is not in the values, we have to wait for last inserted id before creating the new list object!
-	*/
 	
-	// if auto_increment ... 
-	
-	// Default values
-	for(var columnName in list.__column) {
-		if(values.hasOwnProperty(columnName)) {
-			defaultValues[columnName] = values[columnName];
+	// Populate dataValues
+	for(var key in columns) {
+		debug.info(key);
+		if(values.hasOwnProperty(key)) {
+			dataValues[key] = values[key];
 		}
 		else {
-			defaultValues[columnName] = list.__column[columnName].default; // it's OK if this is undefined
+			dataValues[key] = columns[key].default;
 		}
+	}
+	
+	console.log("\n");
+	// Check if the keys exist in values or are auto_increment. And get the values for them.
+	identifiers.forEach(function(key) { // identifiers is an Array
+
+		console.log(key);
+	
+		if(values.hasOwnProperty(key)) {
+			identifierValues[key] = values[key];
+		}
+		else if(columns[key].auto_increment) {
+			identifierValues[key] = list.__increment++; // ... mySQL can only have one auto_increment field.
+			
+			dataValues[key] = identifierValues[key];
+		}
+		else {
+			throw new Error(key + " needs to have a value!");
+		}
+
+	});
+	
+	
+	// Check if the index (first identifier) is a duplicate
+	if(list[identifierValues[identifiers[0]]]) {
+		throw new Error(identifier + " " + identifiers[0] + " already exist in the " + dbTable + "-list! " + identifiers[0] + " must be unique!");
+		
+		//return list[identifierValues[identifiers[0]]];
 	}
 	
 
-	// Get the value for the primary key
-	if(values.hasOwnProperty(identifier)) {
-		identifierValue = values[identifier];
-		
-		// Check for dublicate keys and throw an error if we find any
-		if(list[identifierValue]) {
-			throw new Error(identifier + " " + identifierValue + " already exist in the " + dbTable + "-list! " + identifier + " must be unique!");
-		}
-	}
-	else if(list.__column[identifier].auto_increment) {
-		identifierValue = list.__increment++;
-		
-		values[identifier] = identifierValue;
-		defaultValues[identifier] = identifierValue;
-	}
-	else {
-		throw new Error(identifier + " needs to have a value!")
-	}
-	
-	table_identifiers[identifier] = identifierValue;
-	
 	dataTable = Object.create(DBO.Table.prototype);
-	dataTable.init(defaultValues, dbTable, table_identifiers, false); // data, dbTable, identifiers(object literal), inserted
+	dataTable.init(dataValues, dbTable, identifierValues, false); // data, dbTable, identifiers(object literal), inserted
 	
 	if(list.__constructor) {
 		object = new list.__constructor(dataTable); // We use new here so that the object function is called
@@ -513,7 +515,7 @@ DBO.List.prototype.add = function(values) {
 	object.data = dataTable;
 
 	// Insert the new object to the list
-	list[identifierValue] = object; 
+	list[identifierValues[identifiers[0]]] = object; 
 
 	updateLinks();
 
@@ -523,7 +525,7 @@ DBO.List.prototype.add = function(values) {
 		var query = database.query("INSERT INTO ?? SET ?", [dbTable, values], function(err, result) {
 			/*
 				If there is an error here it's possible that the ID already exist because another app has made inserts.
-				That's why we will switch to Postgree in the future so that we can monitor inserts from other apps.
+				(That's why we will switch to Postgree in the future so that we can monitor inserts from other apps.)
 			*/
 			if (err) throw new Error(err);
 			
@@ -659,7 +661,7 @@ DBO.List.prototype.kill = function(keyValue) {
 
 	var list = this,
 		dbTable = list.__table,
-		key = list.__identifier;
+		key = list.__identifiers[0];
 	
 	delete list[keyValue];
 	
@@ -1354,7 +1356,7 @@ DBO.Log.prototype.add = function(values, callback) {
 		
 		// "Offline mode"
 		
-		debug.warn("Entry not saved to database!");
+		debug.warn("Entry to " + dbTable + " not saved to database!");
 		done = true;
 		
 		if(callback) callback();
