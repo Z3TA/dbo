@@ -330,15 +330,30 @@ DBO.List = function(arg, callback) {
 		data,
 		dbTable = arg.table,
 		constructor = arg.fun,
-		identifiers = arg.keys || ["id"],
+		identifiers = arg.keys,
 		done = false;
-		
+	
+	if(identifiers === undefined) {
+		identifiers = ["id"];
+		debug.info("Identifier for " + dbTable + " set to 'id'");
+	}
+	else if(typeof identifiers !== "array") {
+		throw new Error("Identifiers must be an array");
+	}
+	else if(identifiers.length == 0) {
+		identifiers = ["id"];
+		debug.info("Identifier for " + dbTable + " set to 'id'");
+	}
+	
 	Object.defineProperty(list, "__table", { value: dbTable, enumerable: false });
 	Object.defineProperty(list, "__constructor", { value: constructor, enumerable: false });
 	Object.defineProperty(list, "__identifiers", { value: identifiers, enumerable: false });
 	Object.defineProperty(list, "__links", { value: [], enumerable: false });
 	Object.defineProperty(list, "__columns", { value: {}, enumerable: false });
 	Object.defineProperty(list, "__increment", { value: 0, enumerable: false, writable: true });
+	Object.defineProperty(list, "__childLinks", { value: [], enumerable: false });
+	
+	
 	
 	if(dbTable === false) {
 		debug.warn("No database will be used for persistent storage!");
@@ -457,8 +472,8 @@ DBO.List.prototype.add = function(values) {
 		identifiers = list.__identifiers, // Keys used to identify rows
 		columns = list.__columns, // List of all columns, with default values
 		identifierValues = {}, // Values used to identify this row
-		dataValues = {}; // Values to populate the data table
-
+		dataValues = {}, // Values to populate the data table
+		identifierValue; // The value used to identify the object in the object list
 	
 
 	
@@ -469,7 +484,12 @@ DBO.List.prototype.add = function(values) {
 			dataValues[key] = values[key];
 		}
 		else {
-			dataValues[key] = columns[key].default;
+			if(columns[key].default === "CURRENT_TIMESTAMP") {
+				dataValues[key] = new Date();
+			}
+			else {
+				dataValues[key] = columns[key].default;
+			}
 		}
 	}
 	
@@ -493,12 +513,13 @@ DBO.List.prototype.add = function(values) {
 
 	});
 	
+	identifierValue = identifierValues[identifiers[0]];
 	
 	// Check if the index (first identifier) is a duplicate
-	if(list[identifierValues[identifiers[0]]]) {
+	if(list.hasOwnProperty(identifierValue)) {
 		throw new Error(identifier + " " + identifiers[0] + " already exist in the " + dbTable + "-list! " + identifiers[0] + " must be unique!");
 		
-		//return list[identifierValues[identifiers[0]]];
+		//return list[identifierValue];
 	}
 	
 
@@ -515,7 +536,7 @@ DBO.List.prototype.add = function(values) {
 	object.data = dataTable;
 
 	// Insert the new object to the list
-	list[identifierValues[identifiers[0]]] = object; 
+	list[identifierValue] = object; 
 
 	updateLinks();
 
@@ -542,13 +563,31 @@ DBO.List.prototype.add = function(values) {
 	return object;
 	
 	function updateLinks() {
-		// Keep the links up to date with the added object ...
-
+		
+		// Set child links
+		list.__childLinks.forEach(setAttribute);
+		
+		
+		
+		// Keep the parent links up to date with the added object ...
+		list.__links.forEach(updateLink);
+		
+		/*
 		for(var i=0, link; i<list.__links.length; i++) {
 			link = list.__links[i];
 			
 			updateLink(link);
 			
+		}
+		*/
+
+		function setAttribute(childLink) {
+			
+			var findObj = {};
+			
+			findObj[childLink.key] = dataTable[childLink.key];
+			
+			list[childLink.attribute] = childLink.list.find(findObj);
 		}
 		
 		function updateLink(link) {
@@ -578,7 +617,7 @@ DBO.List.prototype.link = function(arg) {
 	// {list: shares, key: "player", attribute: "shareholders"}
 
 	var list = this,
-		identifier = list.__identifier,
+		identifier = list.__identifiers[0],
 		otherList = arg.list,
 		key = arg.key || list.__table,
 		attribute = arg.attribute || otherList.__table,
@@ -594,15 +633,18 @@ DBO.List.prototype.link = function(arg) {
 		}
 	}
 
-
+	list.__childLinks.push({key: key, list: otherList, attribute: attribute});
+	
 	otherList.__links.push({key: key, list: list, attribute: attribute});
 
-	
+
 	for(var index in list) {
 		if(list.hasOwnProperty(index)) {
 			makeAttributeLinkFor(index);			
 		}
 	}
+
+	
 	
 	function makeAttributeLinkFor(objectIndex) {
 		
@@ -709,7 +751,7 @@ DBO.List.prototype.first = function() {
 	*/
 	
 	if(keys.length > 1) {
-		throw new Error("List contains more then one object. Consider using .rand() instead of .first()")
+		throw new Error("List contains more then one object. You might have duplicate data! Consider using .rand() instead of .first()")
 	}
 	else if(keys.length == 0) {
 		return false;
@@ -720,21 +762,30 @@ DBO.List.prototype.first = function() {
 
 
 
-DBO.List.prototype.search = function(keyValues) {
+DBO.List.prototype.find = function(keyValues) {
 	/*
 	
 		Works like AND ... AND ...
 	
 	*/
+	
 	var list = this,
-		identifier = list.__identifier,
+		identifier = list.__identifiers[0],
 		identifierValue,
 		foundObjects = Object.create(DBO.List.prototype),
 		allMatch = true,
 		keys,
 		obj;
 	
-	if(!keyValues) return list;
+	
+	if(typeof keyValues == "function") {
+		debug.info("A function was passed into 'find'. Method 'filter' will be used!");
+		return list.filter(keyValues);
+	}
+	else if(!keyValues) {
+		debug.warn("Method search called without argument! Returning full list.")
+		return list;
+	}
 	
 	if(keyValues.hasOwnProperty(identifier)) {
 		// Take a shortcut, search only one object
@@ -819,65 +870,8 @@ DBO.List.prototype.sum = function(key) {
 
 
 
-DBO.List.prototype.find = function(keyValues) {
-	
-	/*
-	
-		An idea ... We could pass a function as argument. And items are added if the function returns true
-		
-		mylist.find(searchFunction);
-		
-		function searchFunction(table) {
-			if(table.data.a > 1) return true;
-		}
-	
-	
-		Works like OR ... OR ...
-	
-	*/
-	
-	var list = this,
-		matchingObjects = Object.create(DBO.List.prototype),
-		item,
-		comparator = "",
-		compareValue,
-		value;
-
-	for(var id in list) {
-		item = list[id];
-		for(var key in keyValues) {
-			
-			value = item.data[key];
-			
-			if(typeof keyValues[key] === "array") {
-				comparator = keyValues[key][0];
-				compareValue = keyValues[key][1];
-				
-				switch(comparator) {
-					
-					case "gt": if(value > compareValue) matchingObjects[id] = item;					break; // Greater
-					case "eq": if(value == compareValue) matchingObjects[id] = item;				break; // Equal
-					case "ls": if(value < compareValue) matchingObjects[id] = item;					break; // Less
-					case "nt": if(value != compareValue) matchingObjects[id] = item;				break; // Not
-					case "ct": if(value.indexOf(compareValue) > -1) matchingObjects[id] = item;		break; // Contains
-					
-				}
-			}
-			else { // Only return items that are equal
-			
-				compareValue = keyValues[key];
-				
-				if(value == compareValue) {
-					matchingObjects[id] = item;
-				}
-			}
-			
-
-
-		}
-	}
-
-	return matchingObjects;
+DBO.List.prototype.search = function(keyValues) {
+	throw new Error("Method 'search' is deprecated. Use 'filter' instead!");
 }
 
 DBO.List.prototype.filter = function(fun) {
