@@ -34,7 +34,6 @@ Async update
 We can wait for .load but never for .add 
 Data from .add needs to be available right away!
 
-
 */
 
 
@@ -46,6 +45,9 @@ var mysql = require("mysql"),
 	deasync = require("deasync");
 
 
+// Allow larger stack traces because the mysql modules takes up at least 10 lines by himself (meh) ...
+Error.stackTraceLimit = Infinity;
+	
 
 // Private variables and functions ...
 
@@ -330,7 +332,7 @@ DBO.List = function(arg, callback) {
 		data,
 		dbTable = arg.table,
 		constructor = arg.fun,
-		identifiers = arg.keys,
+		identifiers = arg.key || arg.keys,
 		done = false;
 	
 	if(identifiers === undefined) {
@@ -352,7 +354,7 @@ DBO.List = function(arg, callback) {
 	Object.defineProperty(list, "__columns", { value: {}, enumerable: false });
 	Object.defineProperty(list, "__increment", { value: 0, enumerable: false, writable: true });
 	Object.defineProperty(list, "__childLinks", { value: [], enumerable: false });
-	
+	Object.defineProperty(list, "__root", { value: null, enumerable: false });
 	
 	
 	if(dbTable === false) {
@@ -476,6 +478,11 @@ DBO.List.prototype.add = function(values) {
 		identifierValue; // The value used to identify the object in the object list
 	
 
+	if(list.__root) {
+		throw new Error("Method 'add' was called on a branched list. Call .add on the root list instead!");
+		//debug.info("Method 'add' was called on a broken up list. Call .add on the root list instead!");
+		//return list.__root.add(values);
+	}
 	
 	// Populate dataValues
 	for(var key in columns) {
@@ -548,7 +555,7 @@ DBO.List.prototype.add = function(values) {
 				If there is an error here it's possible that the ID already exist because another app has made inserts.
 				(That's why we will switch to Postgree in the future so that we can monitor inserts from other apps.)
 			*/
-			if (err) throw new Error(err);
+			if (err) throw err;
 			
 			dataTable.__inserted = true;
 			
@@ -565,7 +572,7 @@ DBO.List.prototype.add = function(values) {
 	function updateLinks() {
 		
 		// Set child links
-		list.__childLinks.forEach(setAttribute);
+		list.__childLinks.forEach(setLinkAttribute);
 		
 		
 		
@@ -581,13 +588,19 @@ DBO.List.prototype.add = function(values) {
 		}
 		*/
 
-		function setAttribute(childLink) {
+		function setLinkAttribute(childLink) {
 			
-			var findObj = {};
+			var findObj = {},
+				search;
 			
 			findObj[childLink.key] = dataTable[childLink.key];
 			
-			list[childLink.attribute] = childLink.list.find(findObj);
+			search = childLink.list.find(findObj);
+			
+			object[childLink.attribute] = search;
+			
+			//console.log("Setting attribute " + childLink.attribute + " with " + search);
+			
 		}
 		
 		function updateLink(link) {
@@ -619,10 +632,21 @@ DBO.List.prototype.link = function(arg) {
 	var list = this,
 		identifier = list.__identifiers[0],
 		otherList = arg.list,
-		key = arg.key || list.__table,
+		key = arg.key,
 		attribute = arg.attribute || otherList.__table,
 		parentName = (typeof arg.pp === "string") ? arg.pp : key,
 		pointToParent = (arg.pp == undefined) ? DBO.cfg.pointToParentInLinks : arg.pp;
+	
+	
+	if(key === undefined) {
+		key = list.__table;
+		debug.warn("Key not defined in link to " + otherList.__table  + ". Key '" + key + "' will be used!");
+		
+		/* 
+			This can cause hard to debug bugs if the table has two keys
+			Is there some way to intelligently throw an error instead!?
+		*/
+	}
 	
 	for(var i=0, link; i<otherList.__links.length; i++) {
 		link = otherList.__links[i];
@@ -655,7 +679,7 @@ DBO.List.prototype.link = function(arg) {
 			throw new Error(attribute + " in "  + objectIndex + " was going to be overwritten ... You probably don't want that, or there is a bug!");
 		}
 		else {
-			listObject[attribute] = Object.create(DBO.List.prototype);
+			listObject[attribute] = list.branch();
 		}
 		
 		
@@ -731,14 +755,16 @@ DBO.List.prototype.kill = function(keyValue) {
 	
 }
 
-DBO.List.prototype.rand = function() {
+DBO.List.prototype.random = function() {
 	// Return a random object from the list
 	
 	var list = this,
 		keys = Object.keys(list),
 		key = keys[Math.floor(Math.random()*keys.length)];
 	
-	return list[key];	
+	// What happens if there are no keys!? possible bug!
+	
+	return list[key];
 }
 
 DBO.List.prototype.first = function() {
@@ -765,25 +791,29 @@ DBO.List.prototype.first = function() {
 DBO.List.prototype.find = function(keyValues) {
 	/*
 	
-		Works like AND ... AND ...
+		Works like  ... AND ... AND ...
+		
+		Use List.filter for more advanced search.
 	
 	*/
 	
 	var list = this,
 		identifier = list.__identifiers[0],
 		identifierValue,
-		foundObjects = Object.create(DBO.List.prototype),
+		foundObjects = list.branch(),
 		allMatch = true,
 		keys,
 		obj;
 	
+	
+	// Bug: calling .find on a list from a link (attribute). 
 	
 	if(typeof keyValues == "function") {
 		debug.info("A function was passed into 'find'. Method 'filter' will be used!");
 		return list.filter(keyValues);
 	}
 	else if(!keyValues) {
-		debug.warn("Method search called without argument! Returning full list.")
+		debug.warn("Method List.find called without argument! Returning full list.")
 		return list;
 	}
 	
@@ -848,7 +878,7 @@ DBO.List.prototype.count = function(keyValues) {
 	var list = this;
 	
 	if(keyValues) {
-		list = list.search(keyValues);
+		list = list.find(keyValues);
 	}
 	
 	return Object.keys(list).length;
@@ -857,7 +887,8 @@ DBO.List.prototype.count = function(keyValues) {
 
 
 DBO.List.prototype.sum = function(key) {
-	// Takes any object, a list or the return from list.search and count a field with float type
+	/* Takes any object, a list or the return from list.find and count a field with float type
+	*/
 	var sum = 0,
 		list = this;
 	
@@ -869,11 +900,6 @@ DBO.List.prototype.sum = function(key) {
 }
 
 
-
-DBO.List.prototype.search = function(keyValues) {
-	throw new Error("Method 'search' is deprecated. Use 'filter' instead!");
-}
-
 DBO.List.prototype.filter = function(fun) {
 	/*
 	
@@ -882,7 +908,7 @@ DBO.List.prototype.filter = function(fun) {
 	*/
 	var list = this,
 		keys = Object.keys(list),
-		filtredList = Object.create(DBO.List.prototype);
+		filtredList = list.branch();
 		
 	for(var i=0; i<keys.length; i++) {
 		check(keys[i]);
@@ -1010,19 +1036,56 @@ DBO.List.prototype.sortedKeys = function(sortBy) {
 	
 }
 
+DBO.List.prototype.branch = function() {
+	// Copy the structure, not the data
+	
+	var list = this,
+		obj = Object.create(DBO.List.prototype),
+		root = list.__root;
+	
+	if(root === null) {
+		root = list;
+	}
+	
+	Object.defineProperty(obj, "__table", { value: list.__table, enumerable: false });
+	//Object.defineProperty(obj, "__constructor", { value: list.__constructor, enumerable: false });
+	Object.defineProperty(obj, "__identifiers", { value: list.__identifiers, enumerable: false });
+	//Object.defineProperty(obj, "__links", { value: list.__links, enumerable: false });
+	//Object.defineProperty(obj, "__columns", { value: list.__columns, enumerable: false });
+	//Object.defineProperty(obj, "__increment", { value: list.__increment, enumerable: false, writable: true });
+	//Object.defineProperty(obj, "__childLinks", { value: list.__childLinks, enumerable: false });
+	Object.defineProperty(obj, "__root", { value: root, enumerable: false });
+
+	return obj;
+
+}
+
+DBO.List.prototype.has = function(keyValues) {
+	/*
+		Use List.has instead of List.hasOwnproperty! 
+		Or you might get bugs if you meant to look for a key in the data.
+	*/
+	var list = this;
+	
+	return list.count(keyValues) > 0 ? true : false;
+}
+
+
+
 // Hide the List.prototypes from enumerable
 Object.defineProperty(DBO.List.prototype, "add", {enumerable: false, value: DBO.List.prototype.add});
 Object.defineProperty(DBO.List.prototype, "link", {enumerable: false, value: DBO.List.prototype.link});
 Object.defineProperty(DBO.List.prototype, "kill", {enumerable: false, value: DBO.List.prototype.kill});
-Object.defineProperty(DBO.List.prototype, "rand", {enumerable: false, value: DBO.List.prototype.rand});
+Object.defineProperty(DBO.List.prototype, "random", {enumerable: false, value: DBO.List.prototype.random});
 Object.defineProperty(DBO.List.prototype, "first", {enumerable: false, value: DBO.List.prototype.first});
-Object.defineProperty(DBO.List.prototype, "search", {enumerable: false, value: DBO.List.prototype.search});
 Object.defineProperty(DBO.List.prototype, "count", {enumerable: false, value: DBO.List.prototype.count});
 Object.defineProperty(DBO.List.prototype, "sum", {enumerable: false, value: DBO.List.prototype.sum});
 Object.defineProperty(DBO.List.prototype, "find", {enumerable: false, value: DBO.List.prototype.find});
 Object.defineProperty(DBO.List.prototype, "filter", {enumerable: false, value: DBO.List.prototype.filter});
 Object.defineProperty(DBO.List.prototype, "shuffledKeys", {enumerable: false, value: DBO.List.prototype.shuffledKeys});
 Object.defineProperty(DBO.List.prototype, "sortedKeys", {enumerable: false, value: DBO.List.prototype.sortedKeys});
+Object.defineProperty(DBO.List.prototype, "branch", {enumerable: false, value: DBO.List.prototype.branch});
+Object.defineProperty(DBO.List.prototype, "has", {enumerable: false, value: DBO.List.prototype.has});
 
 
 

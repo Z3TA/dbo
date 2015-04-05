@@ -2,7 +2,7 @@
   "author": "Z3T4",
   "name": "dbo",
   "description": "Make your data persistent. Database abstraction.",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "main": "./dbo.js",
   "keywords": [
     "Persistent data",
