@@ -2,7 +2,7 @@
   "author": "Z3T4",
   "name": "dbo",
   "description": "Make your data persistent. Database abstraction.",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "main": "./dbo.js",
   "keywords": [
     "Persistent data",
@@ -18,6 +18,7 @@
   "repository": {
     "type" : "git",
     "url" : "http://github.com/Z3TA/dbo.git"
-  }
+  },
+  "license ": "The MIT License (MIT)"
 }
 
