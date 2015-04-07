@@ -37,8 +37,8 @@ DBO.connect({host: "127.0.0.1",	user: "nodedeamon", password : "12345", database
 
 
 // Load data
-var players = new DBO.list({table: "players", fun: Player, key: "name"});
-var weapons = new DBO.list({table: "weapons", fun: Weapon, key: "id"});
+var players = new DBO.List({table: "players", fun: Player, key: "name"});
+var weapons = new DBO.List({table: "weapons", fun: Weapon, key: "id"});
 
 // Link weapons to the players
 players.link({list: weapons, key: "player_name"});
@@ -61,7 +61,7 @@ for(var id in player.weapons) {
 weapon.fireAt(players["Napoleon"]);
 ```
 
-You only have to remember one function (DBO.list) to make your data persistent.
+You only have to remember one function (DBO.List) to make your data persistent.
 
 The "data" will always be under .data, stored as an associative array with key, value pairs. We choose to have all "data" under a data attribute to make sure other attributes or functions are not overwritten.
 
