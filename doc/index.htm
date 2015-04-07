@@ -41,7 +41,7 @@ DBO.connect({host: "127.0.0.1",	user: "myuser", password : "mypassword", databas
 <p>Creates a list of all the rows in a database table. Each item in the list will be an object.</p>
 
 <pre class="prettyprint">
-var players = new DBO.list({table: "player", fun: Player, key: "name"});
+var players = new DBO.List({table: "player", fun: Player, key: "name"});
 
 for(var name in players) {
 	console.log(players[name].data.name);
@@ -64,12 +64,12 @@ If no key is specified, lower case "id" will be used.</p>
 <p>Adds a object to the list.</p>
 
 <pre class="prettyprint">
-players.add({name: "Jon Doe", age: 33}, callback);
+players.add({name: "Jon Doe", age: 33});
 </pre>
 
 <p>Makes an INSERT into the database table specified when creating the list. And create a new Object with the constructor specified when making the list.</p>
 
-<p>If the second argument (instead of callback) is defined as false. The script will wait until the data has been inserted before continuing.</p>
+<p>Returns the added object.</p>
 
 <p>Tip: For convenience, use default values for most fields in the database!</p>
 
@@ -158,7 +158,7 @@ console.log(JSON.stringify(spacemap, null, 2));
 <p>Works like DBO.list, but do not keep the data in memory. Only the amount of inserts are saved. Intended use for statistics of huge data that do not fit in memory.</p>
 
 <pre class="prettyprint">
-var attacks = DBO.log({table: attacks, keys: [attacker, defender]);
+var attacks = new DBO.Log({table: attacks, keys: [attacker, defender]);
 
 attacks.add({attacker: playerId, defender: anotherPlayer}); 
 
@@ -195,19 +195,20 @@ console.log(JSON.stringify(attacks.list({attacker: playerId}), null, 2));
 </pre>
 
 
-<h2>DBO.table</h2>
+<h2>DBO.Table</h2>
 
-<p>DBO.table is used internally to hold the data in a key:value table.</p>
+<p>DBO.Table is used internally to hold the data in a key:value table.</p>
 
 <pre class="prettyprint">
 var player = new Player();
-player.data = new DBO.table({table: "player", keys: ["name"], keyValue: "Johan"}, doStuff);
+player.data = new DBO.Table({table: "player", keys: {name: "Johan"}}, doStuff);
 
 function doStuff() {
 	player.doSomething();
 }
-
 </pre>
+
+<p>Selects all data from table <i>player</i> where <i>name</i> equals "Johan".</p>
 
 <h3>Update the data</h3>
 
@@ -237,6 +238,17 @@ DBO.debug.useColors = true;
 
 <p>No updates will be pushed to the database.<br>
 Useful if you just want to test something or write a quick demo.</p>
+
+
+<!--
+<h2>Making database queries</h2>
+
+<p>Although this module is meant to abstract the SQL, you can still make SQL queries:</p>
+<pre class="prettyprint">
+
+</pre>
+-->
+
 
 
 </div>

@@ -34,6 +34,12 @@ Async update
 We can wait for .load but never for .add 
 Data from .add needs to be available right away!
 
+
+Todo
+----
+SHOW TABLE STATUS: On timed intervals to see if the data has changed, then make a reload
+
+
 */
 
 
@@ -179,6 +185,9 @@ DBO.Table = function(arg, callback) {
 	if(!database) {
 		throw new Error("You need to connect to a database! See DBO.connect()");
 	}
+	else if(dbTable === false) {
+		throw new Error("DBO.Table can not be used in offline mode!");
+	}
 	else if(!dbTable) {
 		throw new Error("No table defined in argument " + JSON.stringify(arg) + "!");
 	}
@@ -194,11 +203,11 @@ DBO.Table = function(arg, callback) {
 			
 			var data = rows[0];
 			
-			table.init(data, dbTable, identifiers);
+			table.init(data, dbTable, identifiers, true);
 
 		}
 		else {
-			throw new Error("Expected one row!");
+			throw new Error("Expected 1 row! " + rows.length + " rows was returned from:\n" + query.sql);
 		}
 		
 		if(callback) callback();
@@ -233,6 +242,8 @@ DBO.Table.prototype.init = function(data, dbTable, identifiers, inserted) {
 	}
 	
 	// Object.keys(data).forEach(table.define);
+
+	//debug.info("" + dbTable + " " + JSON.stringify(identifiers) + " initiated.");
 	
 }
 
@@ -772,7 +783,7 @@ DBO.List.prototype.first = function() {
 	*/
 	
 	if(keys.length > 1) {
-		throw new Error("List contains more then one object. You might have duplicate data! Consider using .rand() instead of .first()")
+		throw new Error("List contains more then one object. You might have duplicate data! Consider using Table.random instead!")
 	}
 	else if(keys.length == 0) {
 		return false;
@@ -971,8 +982,8 @@ DBO.List.prototype.sortedKeys = function(sortBy) {
 		
 		for(var key in sortBy) {
 			
-			valueA = objA.data[key];
-			valueB = objB.data[key];
+			valueA = list[objKeyA].data[key];
+			valueB = list[objKeyB].data[key];
 			
 			sortMethod = sortBy[key];
 			
@@ -1032,7 +1043,9 @@ DBO.List.prototype.sortedKeys = function(sortBy) {
 }
 
 DBO.List.prototype.branch = function() {
-	// Copy the structure, not the data
+	/* Copy the structure, not the data. Use this instead of Object.crate
+	   Return a branch (without data) of this DBO.Table.
+	*/
 	
 	var list = this,
 		obj = Object.create(DBO.List.prototype),
