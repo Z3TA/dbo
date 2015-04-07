@@ -256,11 +256,11 @@ DBO.Table.prototype.define = function (name, currentValue) {
 			}
 			
 			/*
-			console.log(JSON.stringify(value) + " = " + value);
+			debug.info(JSON.stringify(value) + " = " + value);
 			
-			console.log("dbTable=" + table.__table);
-			console.log("name=" + name);
-			console.log("identifiers=" + JSON.stringify(table.__identifiers));
+			debug.info("dbTable=" + table.__table);
+			debug.info("name=" + name);
+			debug.info("identifiers=" + JSON.stringify(table.__identifiers));
 			*/
 			
 			// Database queries are costly, so check if the value actually updates before updating it.
@@ -293,7 +293,7 @@ DBO.Table.prototype.update = function () {
 	
 	debug.info("update called. inserted=" + table.__inserted + " hasChanged=" + table.__hasChanged);
 	
-	//console.log(JSON.stringify(table));
+	//debug.info(JSON.stringify(table));
 	
 	if(table.__inserted && table.__hasChanged) {
 	
@@ -337,14 +337,14 @@ DBO.List = function(arg, callback) {
 	
 	if(identifiers === undefined) {
 		identifiers = ["id"];
-		debug.info("Identifier for " + dbTable + " set to 'id'");
+		debug.info("Identifier for table " + dbTable + " set to 'id'");
 	}
 	else if(typeof identifiers !== "array") {
 		throw new Error("Identifiers must be an array");
 	}
 	else if(identifiers.length == 0) {
 		identifiers = ["id"];
-		debug.info("Identifier for " + dbTable + " set to 'id'");
+		debug.info("Identifier for table " + dbTable + " set to 'id'");
 	}
 	
 	Object.defineProperty(list, "__table", { value: dbTable, enumerable: false });
@@ -486,7 +486,7 @@ DBO.List.prototype.add = function(values) {
 	
 	// Populate dataValues
 	for(var key in columns) {
-		debug.info(key);
+		//debug.info(key);
 		if(values.hasOwnProperty(key)) {
 			dataValues[key] = values[key];
 		}
@@ -500,12 +500,9 @@ DBO.List.prototype.add = function(values) {
 		}
 	}
 	
-	console.log("\n");
 	// Check if the keys exist in values or are auto_increment. And get the values for them.
 	identifiers.forEach(function(key) { // identifiers is an Array
 
-		console.log(key);
-	
 		if(values.hasOwnProperty(key)) {
 			identifierValues[key] = values[key];
 		}
@@ -598,8 +595,6 @@ DBO.List.prototype.add = function(values) {
 			search = childLink.list.find(findObj);
 			
 			object[childLink.attribute] = search;
-			
-			//console.log("Setting attribute " + childLink.attribute + " with " + search);
 			
 		}
 		
@@ -1150,7 +1145,7 @@ DBO.Log = function(arg, callback) {
 	
 	function recurse(obj, keys, parents) {
 		
-		//console.log("Recursing!");
+		//debug.info("Recursing!");
 		
 		for(var i=0, k; i<keys.length; i++) {
 			
@@ -1198,7 +1193,7 @@ DBO.Log = function(arg, callback) {
 			query = database.query(SQL, [dbTable], queryCallback);
 		}
 		
-		//console.log("key=" + key + " keys:" + keys + " parents:" + JSON.stringify(parents));
+		//debug.info("key=" + key + " keys:" + keys + " parents:" + JSON.stringify(parents));
 		
 		debug.sql(query.sql);
 		
@@ -1207,12 +1202,12 @@ DBO.Log = function(arg, callback) {
 		
 			if (err) throw new Error(err);
 			
-			//console.log(JSON.stringify(rows));
+			//debug.info(JSON.stringify(rows));
 			
 			if(rows.length === 0) {
 				obj[key] = obj.__total;
 				
-				//console.log("Query had no result ... Setting " + key + " to " + obj.__total);
+				//debug.info("Query had no result ... Setting " + key + " to " + obj.__total);
 				
 			}
 			else {
@@ -1230,15 +1225,15 @@ DBO.Log = function(arg, callback) {
 						
 						// again ...
 						
-						//console.log("oldParents=" + JSON.stringify(parents));
+						//debug.info("oldParents=" + JSON.stringify(parents));
 						
 						newParents = clone(parents);
 						
 						newParents[key] = name; // Add current key
 						
-						//console.log("newParents=" + JSON.stringify(newParents));
+						//debug.info("newParents=" + JSON.stringify(newParents));
 
-						//console.log("err key=" + key + " keys=" + JSON.stringify(keys));
+						//debug.info("err key=" + key + " keys=" + JSON.stringify(keys));
 						
 						obj[key][name] = {};
 						
@@ -1259,7 +1254,7 @@ DBO.Log = function(arg, callback) {
 			}
 			
 			if(recursiveCount++ == recursiveDone) {
-				//console.log("ALL DONE!");
+				//debug.info("ALL DONE!");
 				done = true;
 			}
 			
@@ -1347,7 +1342,7 @@ DBO.Log.prototype.add = function(values, callback) {
 
 	recurse(log, keys);
 	
-	//console.log(JSON.stringify(log, null, 4));
+	//debug.info(JSON.stringify(log, null, 4));
 	
 	function recurse(tree, keys) {
 		// Loop keys and dig deeper ...
@@ -1383,7 +1378,7 @@ DBO.Log.prototype.add = function(values, callback) {
 				tree[value] = 1;
 			}
 			
-			//console.log(value + "=" + tree[value]);
+			//debug.info(value + "=" + tree[value]);
 			
 		}
 		else {
@@ -1648,7 +1643,7 @@ if(DBO.cfg.enableArray) {
 			}
 			*/
 			
-			//console.log("array[" + dimensionValue[0] + "][" + dimensionValue[1] + "]");
+			//debug.info("array[" + dimensionValue[0] + "][" + dimensionValue[1] + "]");
 
 			if(constructor) {
 				array[dimensionValue[0]][dimensionValue[1]] = new constructor(dataTable);
