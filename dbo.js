@@ -343,12 +343,17 @@ DBO.List = function(arg, callback) {
 		data,
 		dbTable = arg.table,
 		constructor = arg.fun,
-		identifiers = arg.key || arg.keys,
+		identifiers = arg.keys,
 		done = false;
 	
 	if(identifiers === undefined) {
-		identifiers = ["id"];
-		debug.info("Identifier for table " + dbTable + " set to 'id'");
+		if(arg.key) {
+			identifiers = [arg.key];
+		}
+		else {
+			identifiers = ["id"];
+			debug.info("Identifier for table " + dbTable + " set to 'id'");
+		}
 	}
 	else if(typeof identifiers !== "array") {
 		throw new Error("Identifiers must be an array");
@@ -383,7 +388,7 @@ DBO.List = function(arg, callback) {
 	}
 	
 	if(listedTables.indexOf(dbTable) > -1) {
-		throw new Error("Table " + dbTable + " already linked!"); 
+		throw new Error("There's already a List for " + dbTable + "!"); 
 	}
 	else {
 		listedTables.push(dbTable);
@@ -989,7 +994,7 @@ DBO.List.prototype.sortedKeys = function(sortBy) {
 			
 			// if(typeof valueA == "string") // WOW JS can compare strings automagically
 			
-			if(sortMethod == "DESC") { // Highest first
+			if(sortMethod == "ASC") { // Lowest first
 				if(valueA > valueB) {
 					result = 1;
 				}
@@ -997,7 +1002,7 @@ DBO.List.prototype.sortedKeys = function(sortBy) {
 					result = -1;
 				}
 			}
-			else { // ASC, Lowest first
+			else { // DESC, Highest first
 				if(valueA > valueB) {
 					result = -1;
 				}
