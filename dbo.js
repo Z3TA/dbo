@@ -397,16 +397,44 @@ DBO.List = function(arg, callback) {
 	var query = database.query("SHOW COLUMNS FROM ??", [dbTable], function(err, rows) {
 		if (err) throw new Error(err);
 		
+		var defaultValue, dataType;
+		
 		for(var i=0; i<rows.length; i++) {
-			list.__columns[rows[i].Field] = {default: rows[i].Default, auto_increment: (rows[i].Extra == "auto_increment")}
+			defaultValue = rows[i].Default;
+			
+			// Avoid null ...
+			if(defaultValue == null) {
+				// Check type
+				dataType = rows[i].Type.replace(" unsigned", "").replace(" signed", "").replace(/\(.*\)/, "");
+				
+				switch(dataType) {
+					case "text":            defaultValue = "";           break;
+					case "varchar":         defaultValue = "";           break;
+					case "tinyint":         defaultValue = false;        break;
+					case "int":             defaultValue = 0;            break;
+					case "bigint":          defaultValue = 0;            break;
+					case "decimal":         defaultValue = 0;            break;
+					case "timestamp":       defaultValue = new Date();   break;
+					case "datetime":        defaultValue = new Date();   break;
+				}
+				
+				debug.info("Default value for " + dbTable + "." + rows[i].Field + " (null) set to " + typeof defaultValue);
+			}
+			
+			// Set value for "CURRENT_TIMESTAMP"
+			if((dataType == "timestamp" || dataType == "datetime") && defaultValue == "CURRENT_TIMESTAMP") {
+				defaultValue = new Date();
+			}
+			
+			list.__columns[rows[i].Field] = {default: defaultValue, auto_increment: (rows[i].Extra == "auto_increment")}
 		}
 		
+		// Check if database table has the columns specified in identifiers
 		for(var i=0; i< identifiers.length; i++) {
 			if(!list.__columns[identifiers[i]]) {
 				throw new Error("" + dbTable + " do not have column " + identifiers[i] + "!");
 			}
 		}
-
 		
 		if(list.__columns[identifiers[0]].auto_increment) {
 			// The (primary) key has "auto_increment". Get the current AUTO_INCREMENT value
