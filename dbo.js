@@ -70,7 +70,7 @@ var database,
 
 debug.warn = function(msg) {
 	if(DBO.cfg.debug.showWarnings) {
-		console.log("warn", msg, "yellow");
+		debug.log("warn", msg, "yellow");
 	}
 }
 debug.sql = function(sql) {
@@ -259,8 +259,8 @@ DBO.Table.prototype.define = function (name, currentValue) {
 	*/
 	
 	if(currentValue == null) { // NuLL can cause bugs ...
-		//debug.warn(table.__table + "." + name + " is NULL where " + table.__identifiers);
-		throw new Error(table.__table + "." + name + " is NULL where " + table.__identifiers);
+		debug.warn(table.__table + "." + name + " is NULL where " + JSON.stringify(table.__identifiers));
+		//throw new Error(table.__table + "." + name + " is NULL where " + JSON.stringify(table.__identifiers));
 	}
 	
 	Object.defineProperty( table, name, {
@@ -430,7 +430,7 @@ DBO.List = function(arg, callback) {
 					case "datetime":        defaultValue = new Date();   break;
 				}
 				
-				debug.info("Default value for " + dbTable + "." + rows[i].Field + " (null) set to " + typeof defaultValue);
+				debug.info("Default value for " + dbTable + "." + rows[i].Field + " (null) set to " + type(defaultValue) + " " + defaultValue);
 			}
 			
 			// Set value for "CURRENT_TIMESTAMP"
@@ -1855,4 +1855,11 @@ function timeoutSet(timeout) {
 	else {
 		return false;
 	}
+}
+
+function type(obj) {
+   var funcNameRegex = /function (.{1,})\(/;
+   var results = (funcNameRegex).exec((obj).constructor.toString());
+   
+   return (results && results.length > 1) ? results[1] : "";	
 }
