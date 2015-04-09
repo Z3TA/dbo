@@ -40,6 +40,11 @@ Todo
 SHOW TABLE STATUS: On timed intervals to see if the data has changed, then make a reload
 
 
+Ideas
+-----
+DBO.List.debug(field): throw on set 
+
+
 */
 
 
@@ -65,30 +70,30 @@ var database,
 
 debug.warn = function(msg) {
 	if(DBO.cfg.debug.showWarnings) {
-		debug.log(msg, "yellow");
+		console.log("warn", msg, "yellow");
 	}
 }
 debug.sql = function(sql) {
 	if(DBO.cfg.debug.showSQL) {
-		debug.log(sql, "cyan");
+		debug.log("SQL ", sql, "cyan");
 	}
 }
 debug.info = function(info) {
 	if(DBO.cfg.debug.showInfo) {
-		debug.log(info, "white");
+		debug.log("info", info, "white");
 	}
 }
-debug.log = function(msg, color) {
+debug.log = function(type, msg, color) {
 	
 	if(!color) {
 		throw new Error("No color defined. You probably meant to call debug.info.");
 	}
 	
 	if(DBO.cfg.debug.useColors) {
-		console.log(cli[color](msg));
+		console.log("DBO " + type + ": " + cli[color](msg));
 	}
 	else {
-		console.log(msg);
+		console.log("DBO " + type + ": " + msg);
 	}
 }
 
