@@ -257,6 +257,12 @@ DBO.Table.prototype.define = function (name, currentValue) {
 	/*
 		Call Object.defineProperty on the attribute to add getter and setter
 	*/
+	
+	if(currentValue == null) { // NuLL can cause bugs ...
+		//debug.warn(table.__table + "." + name + " is NULL where " + table.__identifiers);
+		throw new Error(table.__table + "." + name + " is NULL where " + table.__identifiers);
+	}
+	
 	Object.defineProperty( table, name, {
 		get: function(){ return currentValue; },
 		set: function(value) {
@@ -307,7 +313,7 @@ DBO.Table.prototype.update = function () {
 		Only make an UPDATE if the row has been INSERT:ed 
 	*/
 	
-	debug.info("update called. inserted=" + table.__inserted + " hasChanged=" + table.__hasChanged);
+	//debug.info("update called. inserted=" + table.__inserted + " hasChanged=" + table.__hasChanged);
 	
 	//debug.info(JSON.stringify(table));
 	
@@ -335,12 +341,13 @@ DBO.Table.prototype.update = function () {
 
 
 DBO.List = function(arg, callback) {
-
 	/*
 		
 		Creates a list of something, initiates and gives each item its data ...
 		
 		The first key will be used as index to the associative array.
+		
+		Keys can be passed in as key or keys (array). 
 		
 	*/
 	
@@ -360,7 +367,7 @@ DBO.List = function(arg, callback) {
 			debug.info("Identifier for table " + dbTable + " set to 'id'");
 		}
 	}
-	else if(typeof identifiers !== "array") {
+	else if(!Array.isArray(identifiers)) {
 		throw new Error("Identifiers must be an array");
 	}
 	else if(identifiers.length == 0) {
