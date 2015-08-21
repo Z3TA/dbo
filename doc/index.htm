@@ -36,7 +36,7 @@ DBO.connect({host: "127.0.0.1",	user: "myuser", password : "mypassword", databas
 </pre>
 
 
-<h2>DBO.list</h2>
+<h2>DBO.List</h2>
 
 <p>Creates a list of all the rows in a database table. Each item in the list will be an object.</p>
 
@@ -81,8 +81,8 @@ players.add({name: "Jon Doe", age: 33});
 <p>Makes data from one list accessible in another based on their relation.</p>
 
 <pre class="prettyprint">
-var players = new DBO.list({table: "player", fun: Player});
-var shares = new DBO.list({table: "shares"});
+var players = new DBO.List({table: "player", fun: Player});
+var shares = new DBO.List({table: "shares"});
 
 players.link({list: shares, key: "player", attribute: "shareholders", pp: "issuer"});
 players.link({list: shares, key: "owner", attribute: "investments"});
@@ -153,9 +153,9 @@ console.log(JSON.stringify(spacemap, null, 2));
 
 
 
-<h2>DBO.log</h2>
+<h2>DBO.Log</h2>
 
-<p>Works like DBO.list, but do not keep the data in memory. Only the amount of inserts are saved. Intended use for statistics of huge data that do not fit in memory.</p>
+<p>Works like DBO.List, but do not keep the data in memory. Only the amount of inserts are saved. Intended use for statistics of huge data that do not fit in memory.</p>
 
 <pre class="prettyprint">
 var attacks = new DBO.Log({table: attacks, keys: [attacker, defender]);
@@ -234,7 +234,7 @@ DBO.debug.useColors = true;
 
 <h2>"Offline mode"</h2>
 
-<p>When creating a DBO.list or DBO.log, specify table: false.</p>
+<p>When creating a DBO.List or DBO.Log, specify table: false.</p>
 
 <p>No updates will be pushed to the database.<br>
 Useful if you just want to test something or write a quick demo.</p>
