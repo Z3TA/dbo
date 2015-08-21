@@ -1849,12 +1849,27 @@ function clone(obj) {
 }
 
 function timeoutSet(timeout) {
-	if(timeout._onTimeout) {
-		return true;
+	
+	/*
+	var value;
+	for(var obj in timeout) {
+		value = timeout[obj];
+		if(typeof value == "function") {
+			console.log(obj + "=function ...");
+		}
+		else {
+			console.log(obj + "=" + value);
+		}
 	}
-	else {
-		return false;
-	}
+	*/
+	
+	/* Old nodejs version used to clear the _onTimeout after it was called ...
+	   We now have to rely on _idleNext */
+	
+	if(!timeout._onTimeout) return false;
+	if(!timeout._idleNext===null) return false; // Did old nodejs versions have this property?
+	
+	return true;
 }
 
 function type(obj) {
