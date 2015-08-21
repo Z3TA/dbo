@@ -293,6 +293,7 @@ DBO.Table.prototype.define = function (name, currentValue) {
 				table.__hasChanged = true;
 				
 				// Set update timer if it's not set
+				//debug.info("timeoutSet(table.__updateTimer)=" + timeoutSet(table.__updateTimer));
 				if(!timeoutSet(table.__updateTimer)) {
 					table.__updateTimer = setTimeout(function() {table.update();}, DBO.cfg.updateDelay)
 				}
@@ -1867,7 +1868,7 @@ function timeoutSet(timeout) {
 	   We now have to rely on _idleNext */
 	
 	if(!timeout._onTimeout) return false;
-	if(!timeout._idleNext===null) return false; // Did old nodejs versions have this property?
+	if(timeout._idleNext===null) return false; // Did old nodejs versions have this property?
 	
 	return true;
 }
