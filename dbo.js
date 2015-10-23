@@ -2,7 +2,7 @@
 /*
 The MIT License (MIT)
 
-Copyright (c) 2015 Johan Zetterberg (Website: http://joha.nz/)
+Copyright (c) 2015 Johan Zetterberg
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -1312,7 +1312,7 @@ DBO.Log = function(arg, callback) {
 				}
 			}
 			
-			if(recursiveCount++ == recursiveDone) {
+			if(++recursiveCount == recursiveDone) {
 				//debug.info("ALL DONE!");
 				done = true;
 			}
