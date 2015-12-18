@@ -63,7 +63,7 @@ Error.stackTraceLimit = Infinity;
 // Private variables and functions ...
 
 var database,
-	db_config = {host: "127.0.0.1",	user: "startupgame", password : "wwwstartupgame", database: "startupgame"},
+	db_config = {host: "127.0.0.1",	user: "user", password : "password", database: "database"},
 	dbRetry = 2000,
 	listedTables = [],
 	debug = {};
