@@ -1328,7 +1328,9 @@ DBO.Log = function(arg, callback) {
 	
 
 	function fill(name, key) {
-	
+		
+		// This function is not used ... !?
+		
 		// SELECT publisher, advertiser, Count(*) AS entries FROM views GROUP BY advertiser HAVING publisher = 100;
 		// If we had used a DBO.List we could have crunshed this, but as we are only storing Count(*)'s we have to make another db query
 		
@@ -1343,7 +1345,7 @@ DBO.Log = function(arg, callback) {
 				
 			}
 			
-			if(fillCount++ == fillGoal) {
+			if(++fillCount == fillGoal) {
 				done = true;
 				
 				if(callback) callback();
