@@ -1,8 +1,5 @@
 ﻿# DBO: Persistent data abstraction module
 
-## ALERT: This is alpha, wait for >1.0.0 for stable. There might be breaking changes in all 0.x versions
-
-
 Your DBA guy will be happy you'll be using a SQL relational database, and your JS hackers will be happy about using no-SQL. And you will be happy about getting the advantage of both!
 
 This module for nodejs/iojs makes it easier to manage data and make data persistent between app restarts.
