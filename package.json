@@ -1,19 +1,24 @@
 {
   "author": "Z3T4",
   "name": "dbo",
-  "description": "Make your data persistent. Database abstraction.",
-  "version": "0.8.6",
+  "description": "Make your data persistent. Database abstraction (ORM/CRUD) / Data Mapper.",
+  "version": "0.8.7",
   "main": "./dbo.js",
   "keywords": [
     "Persistent data",
     "Database abstraction",
     "Database object",
-    "Persistent object"
+    "Persistent object",
+	"CRUD",
+	"ORM"
   ],
+  "engines": {
+    "node": ">=0.10.40"
+  },
   "dependencies": {
      "mysql": "^2.5.4",
-     "cli-color": "^0.3.2",
-     "deasync": "^0.0.8"
+     "cli-color": ">=0.3.2",
+     "deasync": ">=0.0.8"
   },
   "repository": {
     "type" : "git",
