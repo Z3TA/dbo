@@ -1,22 +1,22 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 </head>
 
-	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 
-	<title>DBO Manual</title>
+<title>DBO Manual</title>
 
-	<meta name="description" content="Closures i JavaScript och hur man undviker dem.">
+<meta name="description" content="Closures i JavaScript och hur man undviker dem.">
 
-	<meta name="keywords" content="javascript, closure">
+<meta name="keywords" content="javascript, closure">
 
-	<link rel="stylesheet" type="text/css"  href="design1/style.css">
+<link rel="stylesheet" type="text/css"  href="design1/style.css">
 
-	<link rel="stylesheet" type="text/css" href="design1/style.css">
-	<link rel="stylesheet" type="text/css" href="prettify/prettify.css">
-	
-	<script type="text/javascript" src="prettify/prettify.js"></script>
+<link rel="stylesheet" type="text/css" href="design1/style.css">
+<link rel="stylesheet" type="text/css" href="prettify/prettify.css">
+
+<script type="text/javascript" src="prettify/prettify.js"></script>
 
 </head>
 
@@ -126,10 +126,114 @@ players.kill("Jon Doe");
 
 <pre class="prettyprint">
 for(var id in players["Jon Doe"].armies) {
-  armies.kill(id);	
+	armies.kill(id);	
 }
 players.kill("Jon Doe");
 </pre>
+
+
+
+<h3>.has</h3>
+
+<p>Returns true if the list has all the property:value's in argument object.</p>
+
+<pre class="prettyprint">
+if(!players.has({id: id, name: "Arnold"}) ...
+</pre>
+
+<p>Use obj.has instead of obj.hasOwnProperty!</p>
+
+
+<h3>.filter</h3>
+
+<p>Will return a list of all objects that matches the criteria of the argument function.</p>
+
+<pre class="prettyprint">
+// Find all players that are between 45 and 64
+var middleAge = players.filter(function filterMiddleAge(player) {
+	return player.data.age >= 45 && player.data.age <= 65;
+});
+</pre>
+
+
+<h3>.find</h3>
+
+<p>Finds a object in the list that matches the property:value in the argument object.</p>
+
+<pre class="prettyprint">
+// Find all players that are 35 years old AND drinks beer
+partyPpl = players.find({age: 35, drink: "beer"});
+</pre>
+
+<p>Equalent of SQL: SELECT * FROM players WHERE age = 35 AND drink = "beer" AND ...</p>
+
+<p>Use .filter for more advanced search</p>
+
+
+<h3>.random</h3>
+
+<p>Returns a random object from the list.</p>
+
+<pre class="prettyprint">
+randomPlayer = players.random();
+console.log(randomPlayer.data.name);
+</pre>
+
+<h3>.first</h3>
+
+<p>Checks if the list only has one object and returns that object.</p>
+
+<pre class="prettyprint">
+var player = players.find({login: login, pw: pw}).first();
+if(player) {
+console.log("Hello " + player.data.name + "!");
+}
+</pre>
+
+<p>Returns false if no object exist.</p>
+
+
+<h3>.count</h3>
+
+<p>Returns number of objects in the list. Accepts a property:value object as argument.</p>
+
+<pre class="prettyprint">
+var totalPlayers = players.count();
+var totalElves = players.count({race: "elf"});
+</pre>
+
+
+<h3>.sum</h3>
+
+<p>Summarizes a data object in a list.</p>
+
+<pre class="prettyprint">
+var income = players["Arnold"].cities.sum("productionIncome");
+</pre>
+
+
+<h3>.shuffledKeys</h3>
+
+<p>Returns an array of shuffled objects</p>
+
+<pre class="prettyprint">
+var deck = cards.shuffledKeys();
+</pre>
+
+
+<h3>.sortedKeys</h3>
+
+<p>Returns an array of sorted objects.</p>
+
+<pre class="prettyprint">
+var arrPlayers = players.sort({age: "ASC", name: "DESC"});
+</pre>
+
+
+
+<h3>.branch</h3>
+
+<p>Returns a branch of the List. Used internally in .link, .find, and .filter. So you can make function chains.</p>
 
 
 
@@ -162,98 +266,98 @@ console.log(JSON.stringify(spacemap, null, 2));
 
 <pre class="prettyprint">
 var attacks = new DBO.Log({table: attacks, keys: [attacker, defender]);
-
-attacks.add({attacker: playerId, defender: anotherPlayer}); 
-
-console.log( "Total attacks made by player " + playerId + ": " + attacks.count({attacker: playerId}) );
-
-console.log( "Total attacks made by player " + playerId + " on player " + otherPlayer + ": " + attacks.count({attacker: playerId, defender: otherPlayer}) );
-</pre>
-
-
-<h3>.add</h3>
-
-<p>Adds data to the log.</p>
-
-
-<h3>.count</h3>
-
-<p>Counts data entries. Works like a SELECT Count(*). But without the database round-trip!</p>
-
-<p>The value can be retrieved directly without calling .count:</p>
-
-<pre class="prettyprint">
-console.log("Total attacks made by player " + playerId + ": " + attacks["attacker"][playerId].__total;
-
-console.log( "Total attacks made by player " + playerId + " on player " + otherPlayer + ": " + attacks["attacker"][playerId]["defender"][otherPlayer]) );
-</pre>
-
-
-<h3>.list</h3>
-
-<p>Select only a part of the log</p>
-
-<pre class="prettyprint">
-console.log(JSON.stringify(attacks.list({attacker: playerId}), null, 2));
-</pre>
-
-
-<h2>DBO.Table</h2>
-
-<p>DBO.Table is used internally to hold the data in a key:value table.</p>
-
-<pre class="prettyprint">
-var player = new Player();
-player.data = new DBO.Table({table: "player", keys: {name: "Johan"}}, doStuff);
-
-function doStuff() {
-	player.doSomething();
-}
-</pre>
-
-<p>Selects all data from table <i>player</i> where <i>name</i> equals "Johan".</p>
-
-<h3>Update the data</h3>
-
-<pre class="prettyprint">
-player.data.score = player.data.score + 1;
-</pre>
+	
+	attacks.add({attacker: playerId, defender: anotherPlayer}); 
+	
+	console.log( "Total attacks made by player " + playerId + ": " + attacks.count({attacker: playerId}) );
+	
+	console.log( "Total attacks made by player " + playerId + " on player " + otherPlayer + ": " + attacks.count({attacker: playerId, defender: otherPlayer}) );
+	</pre>
+	
+	
+	<h3>.add</h3>
+	
+	<p>Adds data to the log.</p>
+	
+	
+	<h3>.count</h3>
+	
+	<p>Counts data entries. Works like a SELECT Count(*). But without the database round-trip!</p>
+	
+	<p>The value can be retrieved directly without calling .count:</p>
+	
+	<pre class="prettyprint">
+	console.log("Total attacks made by player " + playerId + ": " + attacks["attacker"][playerId].__total;
+	
+	console.log( "Total attacks made by player " + playerId + " on player " + otherPlayer + ": " + attacks["attacker"][playerId]["defender"][otherPlayer]) );
+	</pre>
+	
+	
+	<h3>.list</h3>
+	
+	<p>Select only a part of the log</p>
+	
+	<pre class="prettyprint">
+	console.log(JSON.stringify(attacks.list({attacker: playerId}), null, 2));
+	</pre>
+	
+	
+	<h2>DBO.Table</h2>
+	
+	<p>DBO.Table is used internally to hold the data in a key:value table.</p>
+	
+	<pre class="prettyprint">
+	var player = new Player();
+	player.data = new DBO.Table({table: "player", keys: {name: "Johan"}}, doStuff);
+	
+	function doStuff() {
+		player.doSomething();
+	}
+	</pre>
+	
+	<p>Selects all data from table <i>player</i> where <i>name</i> equals "Johan".</p>
+	
+	<h3>Update the data</h3>
+	
+	<pre class="prettyprint">
+	player.data.score = player.data.score + 1;
+	</pre>
  
-<p>A Object defined setter works in the background and makes an async database UPDATE.</p>
- 
- 
+	<p>A Object defined setter works in the background and makes an async database UPDATE.</p>
  
  
  
-<h2>Debugging</h2>
  
-<pre class="prettyprint">
-DBO.debug.showSQL = true;
-DBO.debug.showWarnings = true;
-DBO.debug.useColors = true;
-</pre>
-
-
-
-<h2>"Offline mode"</h2>
-
-<p>When creating a DBO.List or DBO.Log, specify table: false.</p>
-
-<p>No updates will be pushed to the database.<br>
-Useful if you just want to test something or write a quick demo.</p>
-
-
-<!--
-<h2>Making database queries</h2>
-
-<p>Although this module is meant to abstract the SQL, you can still make SQL queries:</p>
-<pre class="prettyprint">
-
-</pre>
--->
-
-
-
+ 
+	<h2>Debugging</h2>
+ 
+	<pre class="prettyprint">
+	DBO.debug.showSQL = true;
+	DBO.debug.showWarnings = true;
+	DBO.debug.useColors = true;
+	</pre>
+	
+	
+	
+	<h2>"Offline mode"</h2>
+	
+	<p>When creating a DBO.List or DBO.Log, specify table: false.</p>
+	
+	<p>No updates will be pushed to the database.<br>
+	Useful if you just want to test something or write a quick demo.</p>
+	
+	
+	<!--
+	<h2>Making database queries</h2>
+	
+	<p>Although this module is meant to abstract the SQL, you can still make SQL queries:</p>
+	<pre class="prettyprint">
+	
+	</pre>
+	-->
+	
+	
+	
 </div>
 
 </body>
