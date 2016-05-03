@@ -141,7 +141,7 @@ players.kill("Jon Doe");
 if(!players.has({id: id, name: "Arnold"}) ...
 </pre>
 
-<p>Use obj.has instead of obj.hasOwnProperty!</p>
+<p>Use obj.has instead of obj.hasOwnProperty</p>
 
 
 <h3>.filter</h3>
@@ -186,7 +186,7 @@ console.log(randomPlayer.data.name);
 <pre class="prettyprint">
 var player = players.find({login: login, pw: pw}).first();
 if(player) {
-console.log("Hello " + player.data.name + "!");
+	console.log("Hello " + player.data.name + "!");
 }
 </pre>
 
@@ -262,16 +262,19 @@ console.log(JSON.stringify(spacemap, null, 2));
 
 <h2>DBO.Log</h2>
 
-<p>Works like DBO.List, but do not keep the data in memory. Only the amount of inserts are saved. Intended use for statistics of huge data that do not fit in memory.</p>
+<p>Works like DBO.List, but do not keep the data in memory. Only the amount of inserts are saved.
+Intended use for statistics of huge data that do not fit in memory.</p>
 
 <pre class="prettyprint">
-var attacks = new DBO.Log({table: attacks, keys: [attacker, defender]);
+var attacks = new DBO.Log({table: attacks, keys: [attacker, defender]});
 	
 	attacks.add({attacker: playerId, defender: anotherPlayer}); 
 	
-	console.log( "Total attacks made by player " + playerId + ": " + attacks.count({attacker: playerId}) );
+	console.log( "Total attacks made by player " + playerId + ": " + 
+    attacks.count({attacker: playerId}) );
 	
-	console.log( "Total attacks made by player " + playerId + " on player " + otherPlayer + ": " + attacks.count({attacker: playerId, defender: otherPlayer}) );
+	console.log( "Total attacks made by player " + playerId + " on player " + 
+    otherPlayer + ": " + attacks.count({attacker: playerId, defender: otherPlayer}) );
 	</pre>
 	
 	
@@ -289,7 +292,8 @@ var attacks = new DBO.Log({table: attacks, keys: [attacker, defender]);
 	<pre class="prettyprint">
 	console.log("Total attacks made by player " + playerId + ": " + attacks["attacker"][playerId].__total;
 	
-	console.log( "Total attacks made by player " + playerId + " on player " + otherPlayer + ": " + attacks["attacker"][playerId]["defender"][otherPlayer]) );
+console.log( "Total attacks made by player " + playerId + " on player " + otherPlayer + ": " + 
+    attacks["attacker"][playerId]["defender"][otherPlayer]) );
 	</pre>
 	
 	
