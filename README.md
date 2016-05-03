@@ -1,4 +1,4 @@
-﻿# DBO: Persistent data abstraction module
+# DBO: Persistent data abstraction module
 
 Your DBA guy will be happy you'll be using a SQL relational database, and your JS hackers will be happy about using no-SQL. And you will be happy about getting the advantage of both!
 
@@ -64,5 +64,5 @@ The "data" will always be under .data, stored as an associative array with key, 
 
 Make sure you use unique identifiers (primary keys) like name, or id (with auto-increment) when you design the database schema!
 
-See the <a href="doc/index.htm">documentation</a> for more info.
+See the <a href="http://dbo.js.org/">Documentation</a> for more info.
 
