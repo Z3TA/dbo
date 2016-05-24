@@ -1,4 +1,4 @@
-﻿
+
 /*
 The MIT License (MIT)
 
@@ -429,6 +429,7 @@ DBO.List = function(arg, callback) {
 					case "decimal":         defaultValue = 0;            break;
 					case "timestamp":       defaultValue = new Date();   break;
 					case "datetime":        defaultValue = new Date();   break;
+					default:                defaultValue = new Date();   break;
 				}
 				
 				debug.info("Default value for " + dbTable + "." + rows[i].Field + " (null) set to " + type(defaultValue) + " " + defaultValue);
@@ -1116,7 +1117,7 @@ DBO.List.prototype.branch = function() {
 
 DBO.List.prototype.has = function(keyValues) {
 	/*
-		Use List.has instead of List.hasOwnproperty! 
+		Use List.has instead of List.hasOwnProperty! 
 		Or you might get bugs if you meant to look for a key in the data.
 	*/
 	var list = this;
