@@ -2,7 +2,7 @@
   "author": "Z3T4",
   "name": "dbo",
   "description": "Make your data persistent. Database abstraction (ORM/CRUD) / Data Mapper.",
-  "version": "0.8.8",
+  "version": "0.8.9",
   "main": "./dbo.js",
   "keywords": [
     "Persistent data",
