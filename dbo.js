@@ -1,50 +1,50 @@
 
 /*
-The MIT License (MIT)
-
-Copyright (c) 2015 Johan Zetterberg
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+	The MIT License (MIT)
+	
+	Copyright (c) 2015 Johan Zetterberg
+	
+	Permission is hereby granted, free of charge, to any person obtaining a copy
+	of this software and associated documentation files (the "Software"), to deal
+	in the Software without restriction, including without limitation the rights
+	to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+	copies of the Software, and to permit persons to whom the Software is
+	furnished to do so, subject to the following conditions:
+	
+	The above copyright notice and this permission notice shall be included in all
+	copies or substantial portions of the Software.
+	
+	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+	IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+	FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+	AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+	LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+	SOFTWARE.
 */
 
 
 /*
-
-NOTES
-=====
-
-Async update
-------------
-We can wait for .load but never for .add 
-Data from .add needs to be available right away!
-
-
-Todo
-----
-SHOW TABLE STATUS: On timed intervals to see if the data has changed, then make a reload
-
-
-Ideas
------
-DBO.List.debug(field): throw on set 
-
-
+	
+	NOTES
+	=====
+	
+	Async update
+	------------
+	We can wait for .load but never for .add 
+	Data from .add needs to be available right away!
+	
+	
+	Todo
+	----
+	
+	
+	
+	Ideas
+	-----
+	DBO.List.debug(field): throw on set 
+	
+	
 */
 
 
@@ -52,21 +52,21 @@ DBO.List.debug(field): throw on set
 
 // Dependencies
 var mysql = require("mysql"),
-	cli = require("cli-color"),
-	deasync = require("deasync");
+cli = require("cli-color"),
+deasync = require("deasync");
 
 
 // Allow larger stack traces because the mysql modules takes up at least 10 lines by himself (meh) ...
 Error.stackTraceLimit = Infinity;
-	
+
 
 // Private variables and functions ...
 
 var database,
-	db_config = {host: "127.0.0.1",	user: "user", password : "password", database: "database"},
-	dbRetry = 2000,
-	listedTables = [],
-	debug = {};
+db_config = {host: "127.0.0.1",	user: "user", password : "password", database: "database"},
+dbRetry = 2000,
+listedTables = [],
+debug = {};
 
 debug.warn = function(msg) {
 	if(DBO.cfg.debug.showWarnings) {
@@ -101,7 +101,7 @@ function handleDbDisconnect() {
 	
 	// Recreate the connection, since the old one cannot be reused.
 	database = mysql.createConnection(db_config);
-    
+	
 	database.connect(function(err) {
 		if(err) {
 			/* 
@@ -114,7 +114,7 @@ function handleDbDisconnect() {
 			setTimeout(handleDbDisconnect, dbRetry);
 		}
 	});
-
+	
 	database.on("error", function(err) {
 		if(err.code === "PROTOCOL_CONNECTION_LOST") {
 			handleDbDisconnect();
@@ -149,7 +149,7 @@ if(Array.prototype.load || Array.prototype.add) {
 
 
 DBO.connect = function(dbCfg) {
-
+	
 	db_config = dbCfg;
 	
 	if(database) {
@@ -169,7 +169,7 @@ DBO.disconnect = function(callback) {
 			if(callback) callback();
 			
 			if(err) throw err;
-
+			
 		});
 		
 	}, DBO.cfg.updateDelay + 100);
@@ -180,12 +180,12 @@ DBO.disconnect = function(callback) {
 DBO.Table = function(arg, callback) {
 	/*
 		The DBO.Table holds the *data* object.
-	
+		
 	*/
 	
 	var table = this,
-		dbTable = arg.table, 
-		identifiers = arg.keys;
+	dbTable = arg.table, 
+	identifiers = arg.keys;
 	
 	if(!database) {
 		throw new Error("You need to connect to a database! See DBO.connect()");
@@ -203,13 +203,13 @@ DBO.Table = function(arg, callback) {
 	
 	var query = database.query("SELECT * FROM ?? WHERE ?", [dbTable, identifiers], function(err, rows) {
 		if (err) throw new Error(err);
-
+		
 		if(rows.length == 1) {
 			
 			var data = rows[0];
 			
 			table.init(data, dbTable, identifiers, true);
-
+			
 		}
 		else {
 			throw new Error("Expected 1 row! " + rows.length + " rows was returned from:\n" + query.sql);
@@ -219,7 +219,7 @@ DBO.Table = function(arg, callback) {
 	});
 	
 	debug.sql(query.sql);
-
+	
 }
 
 
@@ -241,13 +241,13 @@ DBO.Table.prototype.init = function(data, dbTable, identifiers, inserted) {
 	Object.defineProperty(table, "__changed", { value: {}, enumerable: false, writable: true });
 	Object.defineProperty(table, "__hasChanged", { value: false, enumerable: false, writable: true });
 	Object.defineProperty(table, "__inserted", { value: inserted, enumerable: false, writable: true });
-
+	
 	for(var field in data) {
 		table.define(field, data[field]);
 	}
 	
 	// Object.keys(data).forEach(table.define);
-
+	
 	//debug.info("" + dbTable + " " + JSON.stringify(identifiers) + " initiated.");
 	
 }
@@ -278,11 +278,11 @@ DBO.Table.prototype.define = function (name, currentValue) {
 			}
 			
 			/*
-			debug.info(JSON.stringify(value) + " = " + value);
-			
-			debug.info("dbTable=" + table.__table);
-			debug.info("name=" + name);
-			debug.info("identifiers=" + JSON.stringify(table.__identifiers));
+				debug.info(JSON.stringify(value) + " = " + value);
+				
+				debug.info("dbTable=" + table.__table);
+				debug.info("name=" + name);
+				debug.info("identifiers=" + JSON.stringify(table.__identifiers));
 			*/
 			
 			// Database queries are costly, so check if the value actually updates before updating it.
@@ -319,7 +319,7 @@ DBO.Table.prototype.update = function () {
 	//debug.info(JSON.stringify(table));
 	
 	if(table.__inserted && table.__hasChanged) {
-	
+		
 		var fields = {};
 		
 		for(var name in table.__changed) {
@@ -353,11 +353,11 @@ DBO.List = function(arg, callback) {
 	*/
 	
 	var list = this,
-		data,
-		dbTable = arg.table,
-		constructor = arg.fun,
-		identifiers = arg.keys,
-		done = false;
+	data,
+	dbTable = arg.table,
+	constructor = arg.fun,
+	identifiers = arg.keys,
+	done = false;
 	
 	if(identifiers === undefined) {
 		if(arg.key) {
@@ -384,6 +384,7 @@ DBO.List = function(arg, callback) {
 	Object.defineProperty(list, "__increment", { value: 0, enumerable: false, writable: true });
 	Object.defineProperty(list, "__childLinks", { value: [], enumerable: false });
 	Object.defineProperty(list, "__root", { value: null, enumerable: false });
+	Object.defineProperty(list, "__index", { value: {}, enumerable: false });
 	
 	
 	if(dbTable === false) {
@@ -454,7 +455,7 @@ DBO.List = function(arg, callback) {
 			// The (primary) key has "auto_increment". Get the current AUTO_INCREMENT value
 			var query = database.query("SELECT `AUTO_INCREMENT` FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?", [db_config.database, dbTable], function(err, rows) {
 				if (err) throw new Error(err);
-					
+				
 				list.__increment = rows[0].AUTO_INCREMENT;
 				
 				selectData();
@@ -485,16 +486,23 @@ DBO.List = function(arg, callback) {
 				fillData(rows[i])
 			}
 			
+			// Create an index for each identifier
+			/*
+				for(var i=0; i<identifiers.length; i++) {
+				createIndex(list, identifiers[i]);
+				}
+			*/
+			
 			done = true;
 			
 			if(callback && DBO.cfg.asyncListsCreation) callback();
-
+			
 		});
 		debug.sql(query.sql);
 	}
-
+	
 	function fillData(row) {
-
+		
 		var name = row[identifiers[0]];
 		
 		var dataTable = Object.create(DBO.Table.prototype); // We use Object.create here because we don't want to call the actual function. That would result in another database SELECT.
@@ -516,7 +524,7 @@ DBO.List = function(arg, callback) {
 		}
 		
 		list[name].data = dataTable;
-
+		
 		
 	}
 	
@@ -526,16 +534,16 @@ DBO.List = function(arg, callback) {
 
 DBO.List.prototype.add = function(values) {
 	var list = this,
-		object,
-		dataTable,
-		dbTable = list.__table,
-		identifiers = list.__identifiers, // Keys used to identify rows
-		columns = list.__columns, // List of all columns, with default values
-		identifierValues = {}, // Values used to identify this row
-		dataValues = {}, // Values to populate the data table
-		identifierValue; // The value used to identify the object in the object list
+	object,
+	dataTable,
+	dbTable = list.__table,
+	identifiers = list.__identifiers, // Keys used to identify rows
+	columns = list.__columns, // List of all columns, with default values
+	identifierValues = {}, // Values used to identify this row
+	dataValues = {}, // Values to populate the data table
+	identifierValue; // The value used to identify the object in the object list
 	
-
+	
 	if(list.__root) {
 		throw new Error("Method 'add' was called on a branched list. Call .add on the root list instead!");
 		//debug.info("Method 'add' was called on a broken up list. Call .add on the root list instead!");
@@ -560,7 +568,7 @@ DBO.List.prototype.add = function(values) {
 	
 	// Check if the keys exist in values or are auto_increment. And get the values for them.
 	identifiers.forEach(function(key) { // identifiers is an Array
-
+		
 		if(values.hasOwnProperty(key)) {
 			identifierValues[key] = values[key];
 		}
@@ -572,7 +580,7 @@ DBO.List.prototype.add = function(values) {
 		else {
 			throw new Error(key + " needs to have a value!");
 		}
-
+		
 	});
 	
 	identifierValue = identifierValues[identifiers[0]];
@@ -584,7 +592,7 @@ DBO.List.prototype.add = function(values) {
 		//return list[identifierValue];
 	}
 	
-
+	
 	dataTable = Object.create(DBO.Table.prototype);
 	dataTable.init(dataValues, dbTable, identifierValues, false); // data, dbTable, identifiers(object literal), inserted
 	
@@ -596,12 +604,12 @@ DBO.List.prototype.add = function(values) {
 	}
 	
 	object.data = dataTable;
-
+	
 	// Insert the new object to the list
 	list[identifierValue] = object; 
-
+	
 	updateLinks();
-
+	
 	
 	if(dbTable) {
 		// Make the INSERT
@@ -635,18 +643,18 @@ DBO.List.prototype.add = function(values) {
 		list.__links.forEach(updateLink);
 		
 		/*
-		for(var i=0, link; i<list.__links.length; i++) {
+			for(var i=0, link; i<list.__links.length; i++) {
 			link = list.__links[i];
 			
 			updateLink(link);
 			
-		}
+			}
 		*/
-
+		
 		function setLinkAttribute(childLink) {
 			
 			var findObj = {},
-				search;
+			search;
 			
 			findObj[childLink.key] = dataTable[childLink.key];
 			
@@ -658,14 +666,14 @@ DBO.List.prototype.add = function(values) {
 		
 		function updateLink(link) {
 			var parentList = link.list,
-				key = link.key,
-				attribute = link.attribute,
-				keyValue = object.data[key];
+			key = link.key,
+			attribute = link.attribute,
+			keyValue = object.data[key];
 			
 			for(var index in parentList) {
 				if(parentList.hasOwnProperty(index)) {
 					if(index == keyValue) { // if player.name = army.owner
-					
+						
 						// Link the new object
 						parentList[index][attribute][identifierValue] = object;
 					}
@@ -679,16 +687,16 @@ DBO.List.prototype.add = function(values) {
 
 
 DBO.List.prototype.link = function(arg) {
-
+	
 	// {list: shares, key: "player", attribute: "shareholders"}
-
+	
 	var list = this,
-		identifier = list.__identifiers[0],
-		otherList = arg.list,
-		key = arg.key,
-		attribute = arg.attribute || otherList.__table,
-		parentName = (typeof arg.pp === "string") ? arg.pp : key,
-		pointToParent = (arg.pp == undefined) ? DBO.cfg.pointToParentInLinks : arg.pp;
+	identifier = list.__identifiers[0],
+	otherList = arg.list,
+	key = arg.key,
+	attribute = arg.attribute || otherList.__table,
+	parentName = (typeof arg.pp === "string") ? arg.pp : key,
+	pointToParent = (arg.pp == undefined) ? DBO.cfg.pointToParentInLinks : arg.pp;
 	
 	
 	if(key === undefined) {
@@ -701,6 +709,14 @@ DBO.List.prototype.link = function(arg) {
 		*/
 	}
 	
+	if(!otherList.random().data.hasOwnProperty(key)) throw new Error("Field " + key + " does not exist in " + otherList.__table);
+	
+	if(list.random()[attribute]) {
+		for(var name in listObject) console.log(name);
+		throw new Error(attribute + " in (" + list.__table + ") will be overwritten ... You probably don't want that, or there is a bug!");
+	}
+	
+	//console.time("checkLinkExist");
 	for(var i=0, link; i<otherList.__links.length; i++) {
 		link = otherList.__links[i];
 		
@@ -709,78 +725,54 @@ DBO.List.prototype.link = function(arg) {
 			throw new Error("The two lists are already linked using " + key + " as " + link.attribute + "!");
 		}
 	}
-
+	//console.timeEnd("checkLinkExist");
+	
 	list.__childLinks.push({key: key, list: otherList, attribute: attribute});
 	
 	otherList.__links.push({key: key, list: list, attribute: attribute});
-
-
-	for(var index in list) {
-		if(list.hasOwnProperty(index)) {
-			makeAttributeLinkFor(index);			
-		}
-	}
-
 	
+	//if(!otherList.__index.hasOwnProperty(key)) createIndex(otherList, key);
 	
-	function makeAttributeLinkFor(objectIndex) {
+	//console.time("makeLinks");
+	var keyValue, listObject, identifierValue;
+	for(var id in otherList) {
 		
-		var listObject = list[objectIndex],
-			identifierValue = listObject.data[identifier];
+		keyValue = otherList[id].data[key];
 		
-		if(listObject[attribute]) {
-			throw new Error(attribute + " in "  + objectIndex + " was going to be overwritten ... You probably don't want that, or there is a bug!");
-		}
-		else {
-			listObject[attribute] = list.branch();
-		}
-		
-		
-		for(var index in otherList) {
-			if( otherList.hasOwnProperty(index) ) {
-				
-				if(!otherList[index].data.hasOwnProperty(key)) {
-					throw new Error(index + " does not have the key/attribute: " + key + "!");
-				}
-				
-				if(otherList[index].data[key] == identifierValue) {
-				
-					listObject[attribute][index] = otherList[index];
-					
-					
-					if(pointToParent) {
-						// Also make a pointer at the parent for easy access
-						if(otherList[index][parentName]) {
-							debug.warn("Key " + parentName + " in " + otherList.__table + " "  + index + " already exist!\n ... You might want to call DBO.link with pp: false or set DBO.cfg.pointToParentInLinks = false");
-						}
-						else {
-							otherList[index][parentName] = listObject;
-						}
-					}
-					
-					
-					
-					
-				}
+		if(list.hasOwnProperty(keyValue)) {
 			
+			listObject = list[keyValue];
+			identifierValue = listObject.data[identifier];
+			
+			if(!listObject[attribute]) listObject[attribute] = list.branch();
+			
+			if(keyValue == identifierValue) {
+				
+				listObject[attribute][id] = otherList[id];
+				
+				if(pointToParent) {
+					// Also make a pointer at the parent for easy access
+					if(otherList[id][parentName]) {
+						debug.warn("Key " + parentName + " in " + otherList.__table + " "  + id + " already exist!\n ... You might want to call DBO.link with pp: false or set DBO.cfg.pointToParentInLinks = false");
+					}
+					else {
+						otherList[id][parentName] = listObject;
+					}
+				}
 			}
 		}
-		
-		if(DBO.crazyJoin) {
-			// Also make like a INNER JOIN
-		}
-		
 	}
-
+	//console.timeEnd("makeLinks");
+	
 }
 
 
 
 DBO.List.prototype.kill = function(keyValue) {
-
+	
 	var list = this,
-		dbTable = list.__table,
-		key = list.__identifiers[0];
+	dbTable = list.__table,
+	key = list.__identifiers[0];
 	
 	delete list[keyValue];
 	
@@ -791,19 +783,19 @@ DBO.List.prototype.kill = function(keyValue) {
 	debug.sql(query.sql);
 	
 	/*
-	
-	Javascript is smart, so we don't have to do this:
-	
-	// Traverse all links and remove this object
-	for(var i=0, link, attribute, parentList; i<list.__links.length; i++) {
+		
+		Javascript is smart, so we don't have to do this:
+		
+		// Traverse all links and remove this object
+		for(var i=0, link, attribute, parentList; i<list.__links.length; i++) {
 		link = list.__links[i];
 		attribute = link.attribute;
 		parentList = link.list;
 		
 		delete parentList[attribute][keyValue];
 		
-	}
-	
+		}
+		
 	*/
 	
 }
@@ -812,8 +804,8 @@ DBO.List.prototype.random = function() {
 	// Return a random object from the list
 	
 	var list = this,
-		keys = Object.keys(list),
-		key = keys[Math.floor(Math.random()*keys.length)];
+	keys = Object.keys(list),
+	key = keys[Math.floor(Math.random()*keys.length)];
 	
 	// What happens if there are no keys!? possible bug!
 	
@@ -822,7 +814,7 @@ DBO.List.prototype.random = function() {
 
 DBO.List.prototype.first = function() {
 	var list = this,
-		keys = Object.keys(list);
+	keys = Object.keys(list);
 	
 	/*
 		You should never make assumptions about the order of elements in a JavaScript object.
@@ -843,20 +835,20 @@ DBO.List.prototype.first = function() {
 
 DBO.List.prototype.find = function(keyValues) {
 	/*
-	
+		
 		Works like  ... AND ... AND ...
 		
 		Use List.filter for more advanced search.
-	
+		
 	*/
 	
 	var list = this,
-		identifier = list.__identifiers[0],
-		identifierValue,
-		foundObjects = list.branch(),
-		allMatch = true,
-		keys,
-		obj;
+	identifier = list.__identifiers[0],
+	identifierValue,
+	foundObjects = list.branch(),
+	allMatch = true,
+	keys,
+	obj;
 	
 	
 	// Bug: calling .find on a list from a link (attribute). 
@@ -891,7 +883,7 @@ DBO.List.prototype.find = function(keyValues) {
 			}
 			
 		}
-
+		
 	}
 	else {
 		// Search all objects (we might be able to optimize this code ...)
@@ -899,7 +891,7 @@ DBO.List.prototype.find = function(keyValues) {
 		keys = Object.keys(list);
 		
 		for(var i=0; i<keys.length; i++) {
-
+			
 			obj = keys[i];
 			
 			allMatch = true;
@@ -921,13 +913,13 @@ DBO.List.prototype.find = function(keyValues) {
 }
 
 DBO.List.prototype.count = function(keyValues) {
-
+	
 	/*
-	
+		
 		We might be able to optimize this by caching!?
-	
+		
 	*/
-
+	
 	var list = this;
 	
 	if(keyValues) {
@@ -935,7 +927,7 @@ DBO.List.prototype.count = function(keyValues) {
 	}
 	
 	return Object.keys(list).length;
-
+	
 }
 
 
@@ -943,7 +935,7 @@ DBO.List.prototype.sum = function(key) {
 	/* Takes any object, a list or the return from list.find and count a field with float type
 	*/
 	var sum = 0,
-		list = this;
+	list = this;
 	
 	for(var id in list) {
 		sum += list[id].data[key];
@@ -955,18 +947,18 @@ DBO.List.prototype.sum = function(key) {
 
 DBO.List.prototype.filter = function(fun) {
 	/*
-	
-	Filter a list using a function that returns true or false
-	
+		
+		Filter a list using a function that returns true or false
+		
 	*/
 	var list = this,
-		keys = Object.keys(list),
-		filtredList = list.branch();
-		
+	keys = Object.keys(list),
+	filtredList = list.branch();
+	
 	for(var i=0; i<keys.length; i++) {
 		check(keys[i]);
 	}
-
+	
 	function check(key) {
 		if(fun(list[key].data)) filtredList[key] = list[key];
 	}
@@ -978,14 +970,14 @@ DBO.List.prototype.filter = function(fun) {
 
 DBO.List.prototype.shuffledKeys = function() {
 	var list = this,
-		keys = Object.keys(list);
-		
-
+	keys = Object.keys(list);
+	
+	
 	keys = shuffleArray(keys);
-
+	
 	return keys;
-		
-
+	
+	
 	function shuffleArray(array) {
 		// Fisher-Yates shuffle: Randomize array element order in-place.
 		for (var i = array.length - 1; i > 0; i--) {
@@ -996,23 +988,23 @@ DBO.List.prototype.shuffledKeys = function() {
 		}
 		return array;
 	}
-		
+	
 }
 
 
 DBO.List.prototype.sortedKeys = function(sortBy) {
 	var list = this,
-		keys = Object.keys(list),
-		keysSorted = keys.sort(sortFunction);
-
+	keys = Object.keys(list),
+	keysSorted = keys.sort(sortFunction);
+	
 	/*
 		Should we clone the list or have the original sorted?
 		You should never make assumptions about the order of elements in a JavaScript object.
-
-	
-	for(var i=0, i<keysSorted.length; i++) {
+		
+		
+		for(var i=0, i<keysSorted.length; i++) {
 		keysSorted[i] = list[keysSorted[i]];
-	}
+		}
 	*/
 	return keysSorted;
 	
@@ -1020,10 +1012,10 @@ DBO.List.prototype.sortedKeys = function(sortBy) {
 	function sortFunction(objKeyA, objKeyB) {
 		
 		var valueA,
-			valueB,
-			result = 0,
-			sortMethod;
-			
+		valueB,
+		result = 0,
+		sortMethod;
+		
 		
 		// todo: able to pass array and only use ASC
 		
@@ -1054,15 +1046,15 @@ DBO.List.prototype.sortedKeys = function(sortBy) {
 			}
 			
 			if(result) break; 
-				
+			
 			// If result == 0, check next sort key
-		
+			
 		}
 		
 		//return list[a]-list[b]
 		
 		return result;
-
+		
 	}
 	
 	
@@ -1072,13 +1064,13 @@ DBO.List.prototype.sortedKeys = function(sortBy) {
 		 * save the arguments object as it will be overwritten
 		 * note that arguments object is an array-like object
 		 * consisting of the names of the properties to sort by
-		 */
+		*/
 		var props = arguments;
 		return function (obj1, obj2) {
 			var i = 0, result = 0, numberOfProperties = props.length;
 			/* try getting a different result from 0 (equal)
 			 * as long as we have extra properties to compare
-			 */
+			*/
 			while(result === 0 && i < numberOfProperties) {
 				result = dynamicSort(props[i])(obj1, obj2);
 				i++;
@@ -1091,12 +1083,12 @@ DBO.List.prototype.sortedKeys = function(sortBy) {
 
 DBO.List.prototype.branch = function() {
 	/* Copy the structure, not the data. Use this instead of Object.crate
-	   Return a branch (without data) of this DBO.Table.
+		Return a branch (without data) of this DBO.Table.
 	*/
 	
 	var list = this,
-		obj = Object.create(DBO.List.prototype),
-		root = list.__root;
+	obj = Object.create(DBO.List.prototype),
+	root = list.__root;
 	
 	if(root === null) {
 		root = list;
@@ -1110,9 +1102,9 @@ DBO.List.prototype.branch = function() {
 	//Object.defineProperty(obj, "__increment", { value: list.__increment, enumerable: false, writable: true });
 	//Object.defineProperty(obj, "__childLinks", { value: list.__childLinks, enumerable: false });
 	Object.defineProperty(obj, "__root", { value: root, enumerable: false });
-
+	
 	return obj;
-
+	
 }
 
 DBO.List.prototype.has = function(keyValues) {
@@ -1123,6 +1115,64 @@ DBO.List.prototype.has = function(keyValues) {
 	var list = this;
 	
 	return list.count(keyValues) > 0 ? true : false;
+}
+
+
+function createIndex(list, key) {
+	/* 
+		Private function for creating a index for a DBO.List
+		
+		Indexes allow faster searching
+		The index needs to be resorted every time something is added to the list, or the key changes
+		(do not use index for data that updates often)
+		
+		Note that mySQL itself is probably better optimized
+		So why not use mySQL directly? Because with this module, you do not have to bother with SQL and asynchronously db queries:
+		foo.data.x++ instead of db.query("UPDATE foo SET x = x + 1 WHERE ?", (err, data) => { ... });
+		Basically less typing and headache. Plus a performance boost of such operations (no waiting for netword/disk io).
+	*/
+	
+	console.time("createIndex_" + key);
+	var index = list.__index[key] = [];
+	
+	for(var name in list) {
+		index.push(list[name]);
+	}
+
+	console.time("sortIndex");
+	index.sort(function(a, b) {
+		return (a[key] > b[key]); // Should handle both numbers, strings and dates
+	});
+	console.timeEnd("sortIndex");
+	
+	console.timeEnd("createIndex_" + key);
+}
+
+
+function binarySearch(array, key, searchElement) {
+	'use strict';
+	
+	var minIndex = 0;
+	var maxIndex = array.length - 1;
+	var currentIndex;
+	var currentElement;
+	
+	while (minIndex <= maxIndex) {
+		currentIndex = (minIndex + maxIndex) / 2 | 0;
+		currentElement = array[currentIndex].data[key];
+		
+		if (currentElement < searchElement) {
+			minIndex = currentIndex + 1;
+		}
+		else if (currentElement > searchElement) {
+			maxIndex = currentIndex - 1;
+		}
+		else {
+			return currentIndex;
+		}
+	}
+	
+	return -1;
 }
 
 
@@ -1141,7 +1191,6 @@ Object.defineProperty(DBO.List.prototype, "shuffledKeys", {enumerable: false, va
 Object.defineProperty(DBO.List.prototype, "sortedKeys", {enumerable: false, value: DBO.List.prototype.sortedKeys});
 Object.defineProperty(DBO.List.prototype, "branch", {enumerable: false, value: DBO.List.prototype.branch});
 Object.defineProperty(DBO.List.prototype, "has", {enumerable: false, value: DBO.List.prototype.has});
-
 
 
 
