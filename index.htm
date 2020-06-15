@@ -263,7 +263,7 @@ console.log(JSON.stringify(spacemap, null, 2));
 <h2>DBO.Log</h2>
 
 <p>Works like DBO.List, but do not keep the data in memory. Only the amount of inserts are saved.
-Intended use for statistics of huge data that do not fit in memory.</p>
+Intended use for statistics of huge data that do not fit in memory, or like a time series database.</p>
 
 <pre class="prettyprint">
 var attacks = new DBO.Log({table: attacks, keys: [attacker, defender]});
